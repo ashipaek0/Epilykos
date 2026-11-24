@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Automations · Epilykos</title>
+  <script>
+    // Apply the saved theme before first paint (same rules as js/theme.js).
+    (function() {
+      var t = null;
+      try { t = localStorage.getItem('theme'); } catch (e) {}
+      if (!t) t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/cards.css">
+  <link rel="stylesheet" href="/glass.css">
+  <link rel="stylesheet" href="/settings-shell.css">
+  <link rel="stylesheet" href="/private/css/private.css">
+  <link rel="stylesheet" href="/private/css/automations.css">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="/icons/epilykos-mark.svg">
+</head>
+<body class="st ct-page au-page">
+  <a class="st-skip" href="#ct-main">Skip to the automations</a>
+  <div class="st-shell">
+  <nav class="ct-nav" aria-label="Automations">
+    <div class="ct-nav-top">
+      <a href="/" class="ct-back">← Dashboard</a>
+    </div>
+    <p class="ct-nav-title">Automations</p>
+    <ul class="ct-nav-list">
+      <li><a href="/controls" class="ct-nav-link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Controls</span></a></li>
+      <li><a href="#au-list-section" class="ct-nav-link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><span>Automations</span></a></li>
+      <li><a href="#au-log-section" class="ct-nav-link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg><span>What they did</span></a></li>
+    </ul>
+    <div class="ct-nav-foot">
+      <span class="ct-nav-foot-label">Theme</span>
+      <button id="theme-toggle" class="theme-toggle ct-theme" type="button" aria-label="Switch between light and dark"><span class="theme-icon">☾</span></button>
+    </div>
+  </nav>
+
+  <div class="st-main-wrap">
+  <main id="ct-main" class="st-main ct-main" tabindex="-1">
+   <div class="ct-content">
+    <header class="ct-head">
+      <h1>Automations</h1>
+      <div class="ct-bar ct-lock" id="ct-lock" role="region" aria-label="Lock and pause switch">
+        <div class="ct-bar-lock">
+          <svg class="ct-lock-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path class="ct-lock-shackle" d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+          <div class="ct-lock-state">
+            <h2 id="ct-lock-title" class="ct-lock-title">Locked</h2>
+            <p class="ct-lock-text" id="ct-lock-text">Unlock to save or turn on an automation.</p>
+          </div>
+          <form class="ct-lock-form" id="ct-unlock-form" autocomplete="off">
+            <label for="ct-password" class="pv-visually-hidden">Password</label>
+            <input id="ct-password" type="password" autocomplete="current-password" placeholder="Password" required>
+            <button type="submit" class="ct-btn ct-btn-primary">Unlock</button>
+          </form>
+          <button type="button" class="ct-btn" id="ct-lock-now" hidden>Lock now</button>
+        </div>
+        <div class="ct-bar-switches">
+          <div class="ct-chip" title="Stops every automation at once. They start again when you turn this off.">
+            <span class="ct-chip-name" id="au-pause-label">Pause all</span>
+            <button type="button" class="ct-toggle" id="au-pause" role="switch" aria-checked="false" aria-labelledby="au-pause-label"></button>
+          </div>
+        </div>
+        <p class="ct-msg" id="ct-lock-msg" role="status" aria-live="polite"></p>
+      </div>
+    </header>
+
+    <section class="st-card ct-section" id="au-list-section" aria-labelledby="au-list-title">
+      <div class="st-card-head">
+        <h2 id="au-list-title">Your automations</h2>
+        <button type="button" class="ct-btn ct-btn-primary" id="au-new">New automation</button>
+      </div>
+      <p class="ct-help">An automation keeps your devices as you say while its conditions hold, and puts them back when they stop holding. It acts on its own, so it works even when &ldquo;Allow device changes&rdquo; is off on the Controls page. It does nothing when the data it needs is missing or old. If you want to change a setting by hand, <strong>Take over</strong> that automation first, or it will put the setting back.</p>
+      <p class="ct-msg" id="au-msg" role="status" aria-live="polite"></p>
+      <div id="au-list" class="au-list"></div>
+    </section>
+
+    <section class="st-card ct-section" id="au-editor" aria-labelledby="au-editor-title" hidden>
+      <div class="st-card-head"><h2 id="au-editor-title">New automation</h2></div>
+      <form id="au-form" autocomplete="off"></form>
+    </section>
+
+    <section class="st-card ct-section" id="au-log-section" aria-labelledby="au-log-title">
+      <div class="st-card-head">
+        <h2 id="au-log-title">What they did</h2>
+        <button type="button" class="ct-btn" id="au-log-refresh">Refresh</button>
+      </div>
+      <div class="ct-table-wrap"><table class="ct-table" id="au-log">
+        <thead><tr><th scope="col">When</th><th scope="col">Automation</th><th scope="col">Change</th><th scope="col">Result</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </section>
+   </div>
+  </main>
+  </div>
+  </div>
+
+  <dialog id="ct-dialog" class="ct-dialog" aria-labelledby="ct-dialog-title">
+    <form method="dialog">
+      <h2 id="ct-dialog-title"></h2>
+      <p id="ct-dialog-text"></p>
+      <div class="ct-dialog-actions">
+        <button value="cancel" class="ct-btn" id="ct-dialog-cancel">Cancel</button>
+        <button value="ok" class="ct-btn ct-btn-primary" id="ct-dialog-ok"></button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/js/csrf.js"></script>
+  <script defer src="/js/secret-reveal.js"></script>
+  <script type="module" src="/private/js/automations.js"></script>
+</body>
+</html>

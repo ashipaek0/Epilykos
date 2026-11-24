@@ -35,9 +35,9 @@ function request(server, method, rawPath, cookie) {
   });
 }
 
-const SECRET_MARKERS = ['Card showcase', 'showcase-data', 'SHOWCASE_BLOCKS', '<title>Controls', 'pv-note', '.sc-frame'];
+const SECRET_MARKERS = ['Card showcase', 'showcase-data', 'SHOWCASE_BLOCKS', '<title>Controls', '<title>Automations', 'pv-note', '.sc-frame'];
 const SIGNED_OUT_PATHS = [
-  '/showcase', '/controls', '/showcase/', '/controls/', '/showcase/anything', '/controls/x/y', '/showcase.html', '/controls.html',
+  '/showcase', '/controls', '/automations', '/automations/x', '/private/js/automations.js', '/private/css/automations.css', '/showcase/', '/controls/', '/showcase/anything', '/controls/x/y', '/showcase.html', '/controls.html',
   '/private', '/private/', '/private/js/showcase.js', '/private/js/showcase-data.js', '/private/js/showcase-api.js', '/private/js/showcase-layout.js', '/private/js/controls.js',
   '/private/css/private.css', '/private/pages/showcase.html', '/private/pages/controls.html', '/private/js/../pages/showcase.html',
   '/private/js/%2e%2e/pages/showcase.html', '/private/js/..%2fpages%2fshowcase.html', '/private/js/', '/private/js/missing.js',
@@ -78,6 +78,9 @@ const SIGNED_OUT_PATHS = [
     assert.match(page.headers['cache-control'] || '', /no-store/);
     assert.match(page.headers['x-robots-tag'] || '', /noindex/);
     assert.strictEqual((await request(server, 'GET', '/controls', cookie)).status, 200);
+    const au = await request(server, 'GET', '/automations', cookie);
+    assert.strictEqual(au.status, 200); assert.match(au.body, /<title>Automations/); assert.match(au.headers['cache-control'] || '', /no-store/);
+    for (const f of ['/private/js/automations.js', '/private/css/automations.css']) assert.strictEqual((await request(server, 'GET', f, cookie)).status, 200, f);
     for (const f of ['showcase.js', 'showcase-data.js', 'showcase-api.js', 'showcase-layout.js', 'controls.js']) {
       const r = await request(server, 'GET', '/private/js/' + f, cookie);
       assert.strictEqual(r.status, 200, f);
@@ -106,7 +109,7 @@ const SIGNED_OUT_PATHS = [
     assert.ok(!fs.existsSync(path.join(ROOT, 'public', 'showcase.html')) && !fs.existsSync(path.join(ROOT, 'public', 'controls.html')));
     const sw = fs.readFileSync(path.join(ROOT, 'public', 'sw.js'), 'utf8');
     const PRIVATE_PATH = new Function(sw.match(/const PRIVATE_PATH = (\/.*\/);/)[0] + ' return PRIVATE_PATH;')();
-    for (const p of ['/showcase', '/controls', '/private/js/showcase.js', '/settings', '/settings.html', '/editor']) assert.ok(PRIVATE_PATH.test(p), `service worker skips ${p}`);
+    for (const p of ['/showcase', '/controls', '/automations', '/private/js/showcase.js', '/settings', '/settings.html', '/editor']) assert.ok(PRIVATE_PATH.test(p), `service worker skips ${p}`);
     for (const p of ['/', '/style.css', '/js/editor.js', '/editor.css', '/js/settings-shell.js']) assert.ok(!PRIVATE_PATH.test(p), `service worker still caches ${p}`);
     assert.match(sw, /no-store/, 'service worker skips no-store responses');
   } finally {
