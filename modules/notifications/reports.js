@@ -10,6 +10,7 @@
 
 const { getConfig, getDb, flushMetrics } = require('../database');
 const { localDateString } = require('../localTime');
+const { logger } = require('../logger');
 
 function round(n, d = 1) {
   const f = 10 ** d;
@@ -67,11 +68,13 @@ async function daySummary(which = 'today') {
   const t = readDayTotals(db, date) || {};
   const lines = [];
   const solar = t.daily_solar || 0;
+  const how = { date, snapshotSolar: round(solar, 2), liveSolar: null, usedLive: false, solarMetric: getConfig('savings_solar_metric') || '(auto)', grid: null };
   if (which !== 'yesterday') {
     try {
       const { computeTodaySolar } = require('../solar');
       const live = computeTodaySolar();
-      if (Number.isFinite(live) && live > solar) t.daily_solar = live;
+      how.liveSolar = Number.isFinite(live) ? round(live, 2) : null;
+      if (Number.isFinite(live) && live > solar) { t.daily_solar = live; how.usedLive = true; }
     } catch (_) { /* snapshot value stands */ }
   }
   lines.push(`☀️ Solar: ${kwh(t.daily_solar || solar)}`);
@@ -84,6 +87,7 @@ async function daySummary(which = 'today') {
     const on = gridOnSeconds(db, start, end);
     if (on !== null) {
       const span = Math.min(end, Math.floor(Date.now() / 1000)) - start;
+      try { how.grid = { onSeconds: on, spanSeconds: span, changes: db.prepare('SELECT COUNT(*) AS n FROM grid_status WHERE timestamp >= ? AND timestamp <= ?').get(start, end).n }; } catch (_) { /* log only */ }
       lines.push(`⚡ Grid available: ${hm(on)}${span > 0 ? ` (${Math.round(on / span * 100)}%)` : ''}`);
     }
   }
@@ -94,6 +98,8 @@ async function daySummary(which = 'today') {
       if (s && Number(s.today) > 0) lines.push(`💰 Saved: ${s.currency || ''}${round(s.today, 2)}`);
     } catch (_) { /* savings not set up */ }
   }
+  // How the figures were worked out, so a surprising summary can be traced from Settings → Logs.
+  try { logger.info(`[report] ${which} summary ${JSON.stringify(how)}`); } catch (_) { /* never breaks a report */ }
   const hasTotals = ['daily_solar', 'daily_consumption', 'daily_grid_import', 'daily_grid_export', 'daily_battery_charge', 'daily_battery_discharge', 'daily_generator'].some(k => t[k] > 0);
   if (!hasTotals) lines.splice(0, 1, 'No energy totals recorded for this day yet.');
   return { title: `${dayLabel(date)}'s energy`, body: lines.join('\n'), data: { date, ...t } };
