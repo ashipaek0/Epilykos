@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "45500802423.1",
-    "version": "1.3.11-dev+e3d706e",
-    "commit": "e3d706ed76d1414407c1fb05f503ef92f90772b6",
-    "digest": "sha256:9a24a375c4adbdf4529b242341f02b13ae66b77fe1218f92459af8d30c2168e7",
+    "buildId": "45501846234.1",
+    "version": "1.3.11-dev+68347e5",
+    "commit": "68347e540826dccb82ac134488400c4adcbf6e5c",
+    "digest": "sha256:c674c49a6d12724be0fb766fc7502a90b1c74f7200cc3b99ed02fb49c5fd0c36",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-24T22:25:50Z",
+    "builtAt": "2026-11-24T22:32:32Z",
     "kind": "release",
     "notes": [
-      "Refactor: move the Bluetooth and wired BMS routes out of server.js into routes/bms.js (#438)"
+      "Refactor: move the modbus and rs232 profile and test routes out of server.js into routes/profiles.js (#439)"
     ]
   },
   "history": [
+    {
+      "buildId": "45501846234.1",
+      "version": "1.3.11-dev+68347e5",
+      "commit": "68347e540826dccb82ac134488400c4adcbf6e5c",
+      "digest": "sha256:c674c49a6d12724be0fb766fc7502a90b1c74f7200cc3b99ed02fb49c5fd0c36",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-24T22:32:32Z",
+      "kind": "release",
+      "notes": [
+        "Refactor: move the modbus and rs232 profile and test routes out of server.js into routes/profiles.js (#439)"
+      ]
+    },
     {
       "buildId": "45500802423.1",
       "version": "1.3.11-dev+e3d706e",
@@ -355,18 +367,6 @@
       "kind": "release",
       "notes": [
         "Profile: Sungrow SH-RT / SHx hybrid (Modbus TCP), input registers (#403)"
-      ]
-    },
-    {
-      "buildId": "44537754261.1",
-      "version": "1.3.5-dev+63ea0ef",
-      "commit": "63ea0efd9e8515343713799f05db968a836f4bb1",
-      "digest": "sha256:c5d701745be8d59f35403e9db2becd853b6571cc395760537648d4c65a3aad8c",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-19T13:52:30Z",
-      "kind": "release",
-      "notes": [
-        "Profile: Huawei SUN2000 (Modbus TCP) with LUNA2000 battery and power meter (#402)"
       ]
     }
   ]
