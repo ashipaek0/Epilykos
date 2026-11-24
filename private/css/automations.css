@@ -34,19 +34,17 @@
 .au-choice button[aria-pressed="true"] { color: var(--st-text); font-weight: 700; border-bottom-color: var(--dt-acc, var(--st-amber)); }
 .au-cond { border-top: 1px solid var(--st-line-soft, var(--st-line)); }
 .au-cond:first-of-type { border-top: 0; }
-.au-line { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 14px; padding: 8px 0; border-top: 1px solid var(--st-line-soft, var(--st-line)); }
+.au-line { display: grid; grid-template-columns: 42px repeat(3, minmax(0, 1fr)) 9.5rem; align-items: end; gap: 6px 22px; padding: 10px 0; border-top: 1px solid var(--st-line-soft, var(--st-line)); }
 .au-cond .au-line { border-top: 0; }
-.au-line > * { margin-bottom: 0; }
-.au-lab, .au-idx { width: 42px; flex: none; color: var(--st-muted); font-weight: 800; font-size: .72rem; letter-spacing: .08em; padding-bottom: 12px; }
+.au-c { display: flex; align-items: flex-end; gap: 10px; min-width: 0; }
+.au-c > select, .au-c > input[type="time"] { flex: 1 1 auto; min-width: 0; }
+.au-acts { display: flex; align-items: flex-end; justify-content: flex-end; gap: 16px; }
+.au-lab, .au-idx { color: var(--st-muted); font-weight: 800; font-size: .72rem; letter-spacing: .08em; padding-bottom: 12px; }
 .au-idx { color: var(--dt-acc, var(--st-amber)); font-size: .9rem; letter-spacing: 0; }
 .au-t, .au-hint, .au-now { padding-bottom: 11px; color: var(--st-muted); font-size: .85rem; white-space: nowrap; }
 .au-hint { white-space: normal; }
-.au-now { color: #2e8a56; }
-.au-sp { flex: 1 1 0; min-width: 0; }
-.au-line .au-type { min-width: 9.5rem; }
-.au-line .au-device { min-width: 15rem; }
-.au-line .au-reading { min-width: 10rem; flex: 1 1 10rem; max-width: 18rem; }
-.au-sub { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 12px; padding: 0 0 10px 56px; color: var(--st-muted); font-size: .86rem; }
+.au-now { color: #2e8a56; white-space: normal; min-width: 0; line-height: 1.25; }
+.au-sub { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 12px; padding: 0 0 10px 64px; color: var(--st-muted); font-size: .86rem; }
 .au-days { display: inline-flex; gap: 14px; padding-bottom: 2px; }
 .au-day { background: none; border: 0; border-bottom: 2px solid transparent; padding: 2px 0; font: inherit; font-weight: 700; color: var(--st-muted); cursor: pointer; }
 .au-day[aria-pressed="true"] { color: var(--st-text); border-bottom-color: var(--dt-acc, var(--st-amber)); }
@@ -60,16 +58,16 @@
 .au-bar-msg:empty { display: none; }
 .au-bar .au-bar-hint { margin: 0 0 0 auto; }
 @media (max-width: 640px) {
-  .au-lab, .au-idx { width: auto; padding-bottom: 0; flex: 1 1 100%; }
-  .au-line > select, .au-line > input { flex: 1 1 40%; }
-  .au-line .au-device { min-width: 0; flex: 1 1 100%; }
   .au-sub { padding-left: 0; }
 }
 
-/* Settings makes every field full width; in the editor's lines they sit side by side at their own widths. */
-html.dt body.st .au-line select, html.dt body.st .au-line input, html.dt body.st .au-inline input, html.dt body.st .au-inline select, html.dt body.st .au-sub input { width: auto; max-width: 100%; }
-html.dt body.st .au-line .au-num, html.dt body.st .au-inline .au-num, html.dt body.st .au-sub .au-num { width: 5.5rem; text-align: right; }
-html.dt body.st .au-line .au-reading { width: 12rem; }
-html.dt body.st .au-line .au-device { width: 17rem; }
-html.dt body.st .au-line .au-type { width: 13rem; }
-html.dt body.st .au-line input[type="time"] { width: 8.5rem; }
+/* Settings makes every field full width; in the editor's lines each sits in its own third. */
+html.dt body.st .au-c select, html.dt body.st .au-c input[type="time"] { width: 100%; }
+html.dt body.st .au-c input.au-num, html.dt body.st .au-inline input.au-num, html.dt body.st .au-sub input.au-num { width: 5.5rem; text-align: right; flex: none; }
+html.dt body.st .au-inline input, html.dt body.st .au-inline select, html.dt body.st .au-sub input { width: auto; max-width: 100%; }
+.au-line .st-btn, .au-more { margin-bottom: 8px; }
+@media (max-width: 860px) {
+  .au-line { grid-template-columns: 42px minmax(0, 1fr) minmax(0, 1fr); }
+  .au-line > .au-c:nth-of-type(3) { grid-column: 2 / -1; }
+  .au-line > .au-acts { grid-column: 2 / -1; justify-content: flex-start; }
+}
