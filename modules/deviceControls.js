@@ -83,6 +83,11 @@ function table() {
 }
 const str = v => (v === undefined || v === null ? null : String(v).slice(0, 200));
 
+/** Only automations may skip the "Allow device changes" switch, and only when they say so in their log source. */
+function mayBypassSwitch(opts) {
+  return !!(opts && opts.bypassSwitch && typeof opts.source === 'string' && opts.source.startsWith('automation:'));
+}
+
 /** Record one attempt. outcome: 'done' | 'refused' | 'failed' | 'unverified'. */
 function logAttempt(entry, req) {
   try {
@@ -181,10 +186,10 @@ async function readBmsSwitches(dev) {
   return out;
 }
 
-async function changeBmsSwitch(p, dev, setting, req) {
-  const base = { source: 'controls', device: dev.name, target: setting.name, label: setting.label, newValue: p.value };
+async function changeBmsSwitch(p, dev, setting, req, opts = {}) {
+  const base = { source: opts.source || 'controls', device: dev.name, target: setting.name, label: setting.label, newValue: p.value };
   const refuse = (detail, extra = {}) => { logAttempt({ ...base, ...extra, outcome: 'refused', detail }, req); return { success: false, error: detail, ...extra }; };
-  const off = writeRefusal();
+  const off = mayBypassSwitch(opts) ? null : writeRefusal();
   if (off) return refuse(off);
   if (p.value !== 'on' && p.value !== 'off') return refuse('Choose on or off');
   const now = await readBmsSwitches(dev);
@@ -302,15 +307,15 @@ async function readSetting(deviceName, settingName) {
  * Change one listed setting: check, write, read back. Every outcome is logged.
  * @param {object} p - { device, setting, value, expected } (expected = the value the page showed)
  */
-async function changeSetting(p, req) {
-  const base = { source: 'controls', device: p.device, target: p.setting, newValue: p.value };
+async function changeSetting(p, req, opts = {}) {
+  const base = { source: opts.source || 'controls', device: p.device, target: p.setting, newValue: p.value };
   const refuse = (detail, extra = {}) => { logAttempt({ ...base, ...extra, outcome: 'refused', detail }, req); return { success: false, error: detail, ...extra }; };
-  const switchOff = writeRefusal();
+  const switchOff = mayBypassSwitch(opts) ? null : writeRefusal();
   if (switchOff) return refuse(switchOff);
   const found = findSetting(p.device, p.setting);
   if (found.error) return refuse(found.error);
   const { dev, setting } = found;
-  if (dev.kind === 'bms') return changeBmsSwitch(p, dev, setting, req);
+  if (dev.kind === 'bms') return changeBmsSwitch(p, dev, setting, req, opts);
   base.label = setting.label;
   if (dev.transport === 'ble-gatt' || dev.profile === 'phocos-anygrid-ble') {
     if (p.expected === undefined || p.expected === null || p.expected === '') return refuse('Read the current value and provide expected before changing this setting');
@@ -434,7 +439,7 @@ async function rawRead(p) {
 module.exports = {
   listedSettingFor,
   UNLOCK_MS,
-  writesEnabled, expertEnabled, setSwitches, writeRefusal,
+  writesEnabled, expertEnabled, setSwitches, writeRefusal, mayBypassSwitch,
   unlockedUntil, unlock, lock, requireUnlocked,
   logAttempt, recentLog,
   settingsOf, listDevices, readSetting, changeSetting, toRaw, toValue, rawWrite, rawRead

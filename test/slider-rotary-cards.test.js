@@ -239,8 +239,8 @@ test('Home Assistant numbers, Tuya values and MQTT topics can be set; nothing el
   assert.deepEqual(ha.getActionsForEntity('number.charge_current'), ['set_value']);
   assert.deepEqual(ha.getActionsForEntity('input_number.cutoff'), ['set_value']);
   // A number's value goes to Home Assistant as `value`, which is the field number.set_value takes.
-  assert.match(read('server.js'), /const HA_VALUE_FIELD = \{[^}]*\};/);
-  assert.doesNotMatch(read('server.js').match(/const HA_VALUE_FIELD = \{[^}]*\}/)[0], /number\.set_value/, 'no renaming: params.value is already the field');
+  assert.match(read('modules/deviceActions.js'), /const HA_VALUE_FIELD = \{[^}]*\};/);
+  assert.doesNotMatch(read('modules/deviceActions.js').match(/const HA_VALUE_FIELD = \{[^}]*\}/)[0], /number\.set_value/, 'no renaming: params.value is already the field');
 });
 
 test('a Home Assistant number tells the editor its own range and unit', () => {
