@@ -215,10 +215,10 @@ function updateSummary() {
 }
 const touch = fn => e => { fn(e); updateSummary(); };
 
-function lineButtons(list, i, what) {
+function lineButtons(list, i, what, extra) {
   const move = (dir, label) => h('button', { type: 'button', class: 'st-btn au-move', 'aria-label': label, onclick: () => { const j = i + dir; if (j < 0 || j >= list.length) return; [list[i], list[j]] = [list[j], list[i]]; drawEditor(true); } }, dir < 0 ? '↑' : '↓');
-  return [list.length > 1 && what === 'action' ? [move(-1, `Move action ${i + 1} up`), move(1, `Move action ${i + 1} down`)] : null,
-    h('button', { type: 'button', class: 'st-btn st-btn-danger-text au-remove', 'aria-label': `Remove ${what} ${i + 1}`, onclick: () => { list.splice(i, 1); drawEditor(true); } }, 'Remove')];
+  return h('div', { class: 'au-acts' }, extra || null, list.length > 1 && what === 'action' ? [move(-1, `Move action ${i + 1} up`), move(1, `Move action ${i + 1} down`)] : null,
+    h('button', { type: 'button', class: 'st-btn st-btn-danger-text au-remove', 'aria-label': `Remove ${what} ${i + 1}`, onclick: () => { list.splice(i, 1); drawEditor(true); } }, 'Remove'));
 }
 
 /** Only a threshold with a number has a margin. */
@@ -260,22 +260,23 @@ function condRow(c, i) {
       } }, d);
     }));
     return h('div', { class: 'au-cond' },
-      h('div', { class: 'au-line' }, lab, type, h('span', { class: 'au-t' }, 'between'),
-        h('input', { type: 'time', 'aria-label': 'From', value: c.from, onchange: touch(e => { c.from = e.target.value; }) }), h('span', { class: 'au-t' }, 'and'),
-        h('input', { type: 'time', 'aria-label': 'To', value: c.to, onchange: touch(e => { c.to = e.target.value; }) }),
-        h('span', { class: 'au-sp' }), lineButtons(draft.when, i, 'condition')),
+      h('div', { class: 'au-line' }, lab, h('div', { class: 'au-c' }, type),
+        h('div', { class: 'au-c' }, h('span', { class: 'au-t' }, 'between'), h('input', { type: 'time', 'aria-label': 'From', value: c.from, onchange: touch(e => { c.from = e.target.value; }) })),
+        h('div', { class: 'au-c' }, h('span', { class: 'au-t' }, 'and'), h('input', { type: 'time', 'aria-label': 'To', value: c.to, onchange: touch(e => { c.to = e.target.value; }) })),
+        lineButtons(draft.when, i, 'condition')),
       h('div', { class: 'au-sub' }, 'On these days', days));
   }
   const m = catalog.metrics.find(x => x.name === c.metric);
   const more = marginable(c) ? h('button', { type: 'button', class: 'st-btn au-more', 'aria-expanded': String(!!c._more), onclick: () => { c._more = !c._more; drawEditor(true); } }, 'More') : null;
   const showMargin = c._more || (c.hysteresis !== undefined && c.hysteresis !== '');
   return h('div', { class: 'au-cond' },
-    h('div', { class: 'au-line' }, lab, type,
-      h('select', { 'aria-label': 'Is', onchange: e => { c.operator = e.target.value; drawEditor(true); updateSummary(); } }, Object.entries(OPS).map(([k, v]) => h('option', { value: k, selected: c.operator === k }, v))),
-      h('input', { class: 'au-num', 'aria-label': 'Value', value: num(c.value), inputmode: 'decimal', onchange: touch(e => { c.value = e.target.value; }) }),
-      m && m.unit ? h('span', { class: 'au-t' }, m.unit) : null,
-      c.metric ? h('span', { class: 'au-now' }, m ? `now ${typeof m.value === 'number' ? m.value.toLocaleString() : m.value}${m.unit ? ' ' + m.unit : ''}${m.ageS >= 90 ? ` (${Math.round(m.ageS / 60)} min ago)` : ''}` : 'no reading yet') : null,
-      h('span', { class: 'au-sp' }), more, lineButtons(draft.when, i, 'condition')),
+    h('div', { class: 'au-line' }, lab, h('div', { class: 'au-c' }, type),
+      h('div', { class: 'au-c' }, h('select', { 'aria-label': 'Is', onchange: e => { c.operator = e.target.value; drawEditor(true); updateSummary(); } }, Object.entries(OPS).map(([k, v]) => h('option', { value: k, selected: c.operator === k }, v)))),
+      h('div', { class: 'au-c' },
+        h('input', { class: 'au-num', 'aria-label': 'Value', value: num(c.value), inputmode: 'decimal', onchange: touch(e => { c.value = e.target.value; }) }),
+        m && m.unit ? h('span', { class: 'au-t' }, m.unit) : null,
+        c.metric ? h('span', { class: 'au-now' }, m ? `now ${typeof m.value === 'number' ? m.value.toLocaleString() : m.value}${m.unit ? ' ' + m.unit : ''}${m.ageS >= 600 ? ` (${Math.round(m.ageS / 60)} min ago)` : ''}` : 'no reading yet') : null),
+      lineButtons(draft.when, i, 'condition', more)),
     showMargin && marginable(c) ? marginLine(c, m) : null);
 }
 
@@ -299,7 +300,7 @@ function stepRow(list, s, i) {
   groups.map(g => h('optgroup', { label: g }, catalog.targets.filter(t => t.group === g).map(t => h('option', { value: t.key, selected: !!entry && entry.key === t.key }, t.label)))));
   const opSel = entry ? h('select', { 'aria-label': 'Action', onchange: e => { s.op = e.target.value; drawEditor(true); updateSummary(); } },
     entry.ops.map(o => h('option', { value: o, selected: s.op === o }, o === 'set' ? 'Set to' : o === 'on' ? 'Turn on' : 'Turn off'))) : null;
-  return h('div', { class: 'au-line' }, h('span', { class: 'au-idx' }, String(i + 1)), sel, opSel, valueInput(entry, s), h('span', { class: 'au-sp' }), lineButtons(list, i, 'action'));
+  return h('div', { class: 'au-line' }, h('span', { class: 'au-idx' }, String(i + 1)), h('div', { class: 'au-c' }, sel), h('div', { class: 'au-c' }, opSel), h('div', { class: 'au-c' }, valueInput(entry, s)), lineButtons(list, i, 'action'));
 }
 
 /** "True for" is kept in seconds; shown in minutes when it is a whole number of them. */
