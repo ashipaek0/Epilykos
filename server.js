@@ -464,7 +464,7 @@ function updateInverterMetrics() {
 const restoreLifecycle = {
   pause() {
     stopExternalPolling(); stopBmsPolling(); stopBmsWiredPolling(); stopDonglePolling();
-    stopMetricAutoFlush(); pvoutput.stop(); notifications.stop();
+    stopMetricAutoFlush(); pvoutput.stop(); notifications.stop(); require('./modules/automations').stop();
     require('./modules/updates').stop();
     shutdownRs232().catch(e => logger.warn('RS232 pause: ' + e.message));
     require('./modules/combinedMetrics').flushPartDays();
@@ -478,7 +478,7 @@ const restoreLifecycle = {
     restartRs232Streaming();
     updateInverterMetrics();
     startExternalPolling(); startBmsPolling(); startBmsWiredPolling(); startDonglePolling();
-    startMetricAutoFlush(); pvoutput.start(); notifications.init();
+    startMetricAutoFlush(); pvoutput.start(); notifications.init(); require('./modules/automations').start();
     require('./modules/updates').start();
     require('./routes/health').checkHealth();
   }
