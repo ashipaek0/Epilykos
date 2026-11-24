@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "45369497031.1",
-    "version": "1.3.9-dev+64d8827",
-    "commit": "64d88273942933a1204b3b261dbfd95387b1e9a7",
-    "digest": "sha256:9b4a1cc2c2d1211f9852f5d0788d263be56cd8bcc5070382a1f84986acd1732b",
+    "buildId": "45374946698.1",
+    "version": "1.3.9-dev+874db17",
+    "commit": "874db17a757d831656ec054eb95cc8f0292ceb2f",
+    "digest": "sha256:5f243ffdaf605bdc38f90a8ea77b1138da77ce5eefc1d034977f1b4e0a2d0897",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-24T09:54:00Z",
+    "builtAt": "2026-11-24T10:27:35Z",
     "kind": "release",
     "notes": [
-      "Automations page: no placeholder text in the fields (#424)"
+      "Automations page: use Settings' own look (#425)"
     ]
   },
   "history": [
+    {
+      "buildId": "45374946698.1",
+      "version": "1.3.9-dev+874db17",
+      "commit": "874db17a757d831656ec054eb95cc8f0292ceb2f",
+      "digest": "sha256:5f243ffdaf605bdc38f90a8ea77b1138da77ce5eefc1d034977f1b4e0a2d0897",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-24T10:27:35Z",
+      "kind": "release",
+      "notes": [
+        "Automations page: use Settings' own look (#425)"
+      ]
+    },
     {
       "buildId": "45369497031.1",
       "version": "1.3.9-dev+64d8827",
@@ -362,18 +374,6 @@
       "kind": "release",
       "notes": [
         "Settings → System → Restart works on the Windows installer build (#388)"
-      ]
-    },
-    {
-      "buildId": "44307847625.1",
-      "version": "1.3.3-dev+e5805b7",
-      "commit": "e5805b710399ece36e743ca7a2b99859c0d8e613",
-      "digest": "sha256:3db9c2373350ee7c2db417ced0e1e466f2850fb0186961e5e0b297d827bee449",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-18T12:51:25Z",
-      "kind": "release",
-      "notes": [
-        "README: link the Windows installer (#387)"
       ]
     }
   ]
