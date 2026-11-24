@@ -1,31 +1,26 @@
-/* Automations page (private/pages/automations.html); builds on private.css. */
-.au-list { display: grid; gap: 12px; }
-.au-empty { color: var(--st-muted); font-size: .86rem; padding: 8px 0; }
-.au-card { border: 1px solid var(--st-line); border-radius: 12px; background: var(--st-panel); padding: 14px; display: grid; gap: 10px; }
-.au-card.is-off { opacity: .8; }
+/* Automations page (private/pages/automations.html). The page, cards, fields, buttons, badges and tables are
+   Settings' own (settings-shell.css and the Datum look); this only lays out what Settings does not have. */
+.au-list { display: grid; gap: 0; }
+.au-empty { color: var(--st-muted); font-size: .86rem; margin: 0; }
+.au-card { display: grid; gap: 10px; padding: 18px 0; border-top: 1px solid var(--st-line-soft, var(--st-line)); }
+.au-card:first-child { border-top: 0; padding-top: 0; }
+.au-card.is-off .au-sentence { color: var(--st-muted); }
 .au-card-top { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; }
 .au-name { margin: 0; font-size: 1rem; font-weight: 800; color: var(--st-text); overflow-wrap: anywhere; }
-.au-status { display: inline-flex; align-items: center; gap: 6px; font-size: .74rem; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: var(--st-hover); color: var(--st-text); }
-.au-status::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--st-muted); }
-.au-status.is-on::before { background: #2e9e5b; }
-.au-status.is-wait::before { background: #d49a1a; }
-.au-status.is-paused::before { background: #4a7fd0; }
-.au-sentence { margin: 0; font-size: .86rem; line-height: 1.55; color: var(--st-text); overflow-wrap: anywhere; }
-.au-sentence b { font-weight: 800; }
-.au-note { margin: 0; font-size: .76rem; color: var(--st-muted); }
-.au-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-.au-form-grid { display: grid; gap: 16px; }
-.au-block { border: 1px solid var(--st-line-soft); border-radius: 12px; padding: 12px; display: grid; gap: 10px; }
-.au-block > h3 { margin: 0; font-size: .82rem; font-weight: 800; color: var(--st-text); }
-.au-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; padding: 8px; border-radius: 10px; background: var(--st-hover); }
-.au-row .ct-field { flex: 1 1 8rem; }
+.au-sentence { margin: 0; font-size: .88rem; line-height: 1.55; color: var(--st-text); overflow-wrap: anywhere; }
+.au-note { margin: 0; font-size: .78rem; color: var(--st-muted); }
+.au-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.au-form-grid { display: grid; gap: 22px; }
+.au-block { display: grid; gap: 12px; }
+.au-block > h3 { margin: 0; font-size: .95rem; font-weight: 800; color: var(--st-text); }
+.au-row { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: flex-end; padding: 12px 0; border-top: 1px solid var(--st-line-soft, var(--st-line)); }
+.au-row .st-field { flex: 1 1 9rem; min-width: 0; margin: 0; }
 .au-row .au-narrow { flex: 0 1 8.5rem; }
-.au-days { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: .78rem; }
-.au-days label { display: inline-flex; gap: 4px; align-items: center; }
-.au-inline { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: .84rem; }
-.au-inline input, .au-inline select { max-width: 9rem; }
-.st .au-inline input, .st .au-inline select { /* same look as the other fields */ box-sizing: border-box; min-height: 40px; padding: 0 10px; border: 1px solid var(--st-line); border-radius: 10px; background: var(--st-panel); color: var(--st-text); font: inherit; }
-.au-result { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--st-hover); font-size: .82rem; line-height: 1.55; }
+.au-days { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: .82rem; padding-top: 6px; }
+.au-days label { display: inline-flex; gap: 6px; align-items: center; }
+.au-inline { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; font-size: .88rem; }
+.au-inline input, .au-inline select { width: 6.5rem; }
+.au-result { margin: 0; padding: 12px 14px; border-radius: 10px; background: var(--st-hover); font-size: .84rem; line-height: 1.55; }
 .au-result ul { margin: 6px 0 0; padding-left: 18px; }
 .au-form-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-@media (max-width: 600px) { .au-row .ct-field, .au-row .au-narrow { flex: 1 1 100%; } }
+@media (max-width: 600px) { .au-row .st-field, .au-row .au-narrow { flex: 1 1 100%; } }
