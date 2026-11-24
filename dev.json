@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "45369486630.1",
-    "version": "1.3.9-dev+7ae68e1",
-    "commit": "7ae68e189cd82a9767c9233960804683149fec11",
-    "digest": "sha256:a22c3385348e595988801cbf05f3cf8d894c3690f8eb7d41115aa26313ffd118",
+    "buildId": "45369497031.1",
+    "version": "1.3.9-dev+64d8827",
+    "commit": "64d88273942933a1204b3b261dbfd95387b1e9a7",
+    "digest": "sha256:9b4a1cc2c2d1211f9852f5d0788d263be56cd8bcc5070382a1f84986acd1732b",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-24T09:53:59Z",
+    "builtAt": "2026-11-24T09:54:00Z",
     "kind": "release",
     "notes": [
-      "Automations page: shorter help text (#423)"
+      "Automations page: no placeholder text in the fields (#424)"
     ]
   },
   "history": [
+    {
+      "buildId": "45369497031.1",
+      "version": "1.3.9-dev+64d8827",
+      "commit": "64d88273942933a1204b3b261dbfd95387b1e9a7",
+      "digest": "sha256:9b4a1cc2c2d1211f9852f5d0788d263be56cd8bcc5070382a1f84986acd1732b",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-24T09:54:00Z",
+      "kind": "release",
+      "notes": [
+        "Automations page: no placeholder text in the fields (#424)"
+      ]
+    },
     {
       "buildId": "45369486630.1",
       "version": "1.3.9-dev+7ae68e1",
@@ -362,18 +374,6 @@
       "kind": "release",
       "notes": [
         "README: link the Windows installer (#387)"
-      ]
-    },
-    {
-      "buildId": "44301231541.1",
-      "version": "1.3.3-dev+dd5af56",
-      "commit": "dd5af56fd217aec5ea1827e6bfe860b8cbdf35f6",
-      "digest": "sha256:c526969a37e6bb43cc1b230d9266ca8f3555810691ba8ee9e66fd57daf2d06bb",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-18T12:09:45Z",
-      "kind": "release",
-      "notes": [
-        "Docker release step starts the Windows package build for the new release (#386)"
       ]
     }
   ]
