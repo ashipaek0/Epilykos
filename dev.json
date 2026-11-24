@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "45499244079.1",
-    "version": "1.3.11-dev+d7f5622",
-    "commit": "d7f5622b69b724eba6581f867e16c81115577ad6",
-    "digest": "sha256:7247e0a5bc72d51bad0362160b537dae0adfd821ab1c1cb0e70dcfac02cbcced",
+    "buildId": "45500802423.1",
+    "version": "1.3.11-dev+e3d706e",
+    "commit": "e3d706ed76d1414407c1fb05f503ef92f90772b6",
+    "digest": "sha256:9a24a375c4adbdf4529b242341f02b13ae66b77fe1218f92459af8d30c2168e7",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-24T22:16:00Z",
+    "builtAt": "2026-11-24T22:25:50Z",
     "kind": "release",
     "notes": [
-      "Refactor: move the dongle routes out of server.js into routes/dongle.js (#437)"
+      "Refactor: move the Bluetooth and wired BMS routes out of server.js into routes/bms.js (#438)"
     ]
   },
   "history": [
+    {
+      "buildId": "45500802423.1",
+      "version": "1.3.11-dev+e3d706e",
+      "commit": "e3d706ed76d1414407c1fb05f503ef92f90772b6",
+      "digest": "sha256:9a24a375c4adbdf4529b242341f02b13ae66b77fe1218f92459af8d30c2168e7",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-24T22:25:50Z",
+      "kind": "release",
+      "notes": [
+        "Refactor: move the Bluetooth and wired BMS routes out of server.js into routes/bms.js (#438)"
+      ]
+    },
     {
       "buildId": "45499244079.1",
       "version": "1.3.11-dev+d7f5622",
@@ -355,20 +367,6 @@
       "kind": "release",
       "notes": [
         "Profile: Huawei SUN2000 (Modbus TCP) with LUNA2000 battery and power meter (#402)"
-      ]
-    },
-    {
-      "buildId": "44537497870.1",
-      "version": "1.3.5-dev+10ecdd9",
-      "commit": "10ecdd9170ff17d5572698b85b1bef7a12db58aa",
-      "digest": "sha256:2c6954a481ac85c7af0b733b3c09f2ddfa8db9d15296ae6271ef1a1db1d085e5",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-19T13:50:58Z",
-      "kind": "release",
-      "notes": [
-        "Profile: GoodWe ET / EH / BT / BH hybrid (Modbus RTU), from GoodWe's third-party EMS protocol document (#401)",
-        "Settings → Home Assistant: publish metrics as sensors through MQTT discovery (#398)",
-        "Notifications: rules that combine up to three metrics (all or any), with three ready-made templates (#399)"
       ]
     }
   ]
