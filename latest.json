@@ -1,21 +1,56 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "45183578353.1",
-    "version": "1.3.8",
-    "commit": "47d616466bdc461c38798ab4cf964b62804acb83",
-    "digest": "sha256:7e30abf6a6dc61ceed2dae67af4d829e16429a3d8465cac8dff8121ca0a25fa4",
+    "buildId": "45427642947.1",
+    "version": "1.3.9",
+    "commit": "3905cc82bcc06213a2e843e0247674381780e85f",
+    "digest": "sha256:f2dc20b2f396f326146a922e6ee6583720aa1c687c961ad8759e14396fe269fd",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-23T13:24:38Z",
+    "builtAt": "2026-11-24T15:37:43Z",
     "kind": "release",
     "notes": [
-      "Showcase data: honour the caller's clock so the window doesn't slide away (#417)",
-      "Bump express-rate-limit (#415)",
-      "Bump better-sqlite3, gridstack, ws (with restore test fix) (#414)",
-      "Bump actions/setup-python from 6 to 7 in the actions group (#411)"
+      "Test: set the session cookie flags in the automations API test (#432)",
+      "Settings: shorter intro on the Updates page (#430)",
+      "Automations editor: move a reading's current value under its line (#429)",
+      "Automations editor: put each line on three even columns (#428)",
+      "Automations editor: one line per condition and action (#427)",
+      "Controls page: use Settings' own look (#426)",
+      "Automations page: use Settings' own look (#425)",
+      "Automations page: no placeholder text in the fields (#424)",
+      "Automations page: shorter help text (#423)",
+      "Updates page: follow every kind of update to its end and keep the status true (#422)",
+      "Automations page: call the run log \"Logs\" (#421)",
+      "Add the Automations page and API, with per-automation take over (#420)",
+      "Add the control automations engine and storage (#419)",
+      "Move the /api/action dispatch into modules/deviceActions.js (#418)"
     ]
   },
   "history": [
+    {
+      "buildId": "45427642947.1",
+      "version": "1.3.9",
+      "commit": "3905cc82bcc06213a2e843e0247674381780e85f",
+      "digest": "sha256:f2dc20b2f396f326146a922e6ee6583720aa1c687c961ad8759e14396fe269fd",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-24T15:37:43Z",
+      "kind": "release",
+      "notes": [
+        "Test: set the session cookie flags in the automations API test (#432)",
+        "Settings: shorter intro on the Updates page (#430)",
+        "Automations editor: move a reading's current value under its line (#429)",
+        "Automations editor: put each line on three even columns (#428)",
+        "Automations editor: one line per condition and action (#427)",
+        "Controls page: use Settings' own look (#426)",
+        "Automations page: use Settings' own look (#425)",
+        "Automations page: no placeholder text in the fields (#424)",
+        "Automations page: shorter help text (#423)",
+        "Updates page: follow every kind of update to its end and keep the status true (#422)",
+        "Automations page: call the run log \"Logs\" (#421)",
+        "Add the Automations page and API, with per-automation take over (#420)",
+        "Add the control automations engine and storage (#419)",
+        "Move the /api/action dispatch into modules/deviceActions.js (#418)"
+      ]
+    },
     {
       "buildId": "45183578353.1",
       "version": "1.3.8",
@@ -425,28 +460,6 @@
       "kind": "release",
       "notes": [
         "Notifications: any browser can offer itself as a push device (#296)"
-      ]
-    },
-    {
-      "buildId": "42487025088.1",
-      "version": "1.1.3",
-      "commit": "6f8b91b2559a894a6eaf4b352ccb8c212acaca49",
-      "digest": "sha256:7034b1bdae61c2c9312c4bdeae17575e0638c178e73f55d0a6647f0735cc8c54",
-      "image": "irunmole/epilykos:latest",
-      "builtAt": "2026-11-08T13:52:47Z",
-      "kind": "release",
-      "notes": [
-        "CI: remove the report-only Windows test job (#295)",
-        "LuxPower poll: read only the register blocks that mapped metrics sit in (#294)",
-        "Deleting a metric no longer freezes the app on a large database (#293)",
-        "Updates page: stop offering the version that is already running",
-        "Give back database space freed by the retention rollup",
-        "BMS pollers: read each battery on its own interval (#289)",
-        "BMS mapping rows: a + New button to create a metric where it is mapped (#286)",
-        "Battery bank test: don't depend on a D-Bus socket",
-        "Sources list: a battery bank with readings is no longer shown as 'No readings yet'",
-        "Battery banks: wired batteries, banks without Bluetooth, and silent empty banks",
-        "Bump express-rate-limit from 8.7.2 to 8.7.3 in the minor-and-patch group"
       ]
     }
   ]
