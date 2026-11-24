@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "45391691774.1",
-    "version": "1.3.9-dev+37913f6",
-    "commit": "37913f6f1ee4f06b267b5eef8ff1efd1da79803a",
-    "digest": "sha256:1263ba3d84e4116a24a76277580087ce501be5b7ba8056e8b81d607ad7367765",
+    "buildId": "45400208141.1",
+    "version": "1.3.9-dev+3795296",
+    "commit": "37952965c79d87e92fec443fb7977740a7356018",
+    "digest": "sha256:d6663fc9d3df3c889acc07dfca1ecbff06b75a94f35262798abb421025f9b675",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-24T12:15:28Z",
+    "builtAt": "2026-11-24T13:07:54Z",
     "kind": "release",
     "notes": [
-      "Automations editor: move a reading's current value under its line (#429)"
+      "Settings: shorter intro on the Updates page (#430)"
     ]
   },
   "history": [
+    {
+      "buildId": "45400208141.1",
+      "version": "1.3.9-dev+3795296",
+      "commit": "37952965c79d87e92fec443fb7977740a7356018",
+      "digest": "sha256:d6663fc9d3df3c889acc07dfca1ecbff06b75a94f35262798abb421025f9b675",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-24T13:07:54Z",
+      "kind": "release",
+      "notes": [
+        "Settings: shorter intro on the Updates page (#430)"
+      ]
+    },
     {
       "buildId": "45391691774.1",
       "version": "1.3.9-dev+37913f6",
@@ -360,18 +372,6 @@
       "kind": "release",
       "notes": [
         "Layout editor: export one dashboard or a chosen few, not only all (#393)"
-      ]
-    },
-    {
-      "buildId": "44467014736.1",
-      "version": "1.3.4-dev+8269f10",
-      "commit": "8269f10389abccfc438da0728f781fa0f16b55d4",
-      "digest": "sha256:62b1c426eaa27832abf4fa3e41fd5abde19910cf08ca096e0063d97ed11d0e70",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-19T05:42:53Z",
-      "kind": "release",
-      "notes": [
-        "Tabs off: an admin always has the bar, with Controls inside it; no header link (#392)"
       ]
     }
   ]
