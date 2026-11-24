@@ -71,3 +71,7 @@ html.dt body.st .au-inline input, html.dt body.st .au-inline select, html.dt bod
   .au-line > .au-c:nth-of-type(3) { grid-column: 2 / -1; }
   .au-line > .au-acts { grid-column: 2 / -1; justify-content: flex-start; }
 }
+
+/* The reading's current value sits under the line, in the first column, so it never squeezes the value column. */
+.au-nowline { padding-bottom: 6px; margin-top: -4px; }
+.au-nowline .au-now { padding: 0; font-size: .82rem; }
