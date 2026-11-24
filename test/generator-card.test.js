@@ -133,7 +133,7 @@ const rows = () => db.prepare('SELECT state FROM generator_status ORDER BY times
   assert.match(read('public/js/editor.js'), /case 'generator-card':\s+html \+= buildGridCardForm\(block, true\)/);
   assert.match(read('public/js/dashboard.js'), /'generatorStatus', 'generatorHours', 'generatorTimeline', 'generatorDaily', 'generatorCost'/);
   assert.match(read('public/settings.html'), /name="generator_status_entity"/);
-  assert.match(read('server.js'), /'grid_status_entity', 'generator_status_entity'/);
+  assert.match(read('routes/settings.js'), /'grid_status_entity', 'generator_status_entity'/);
   assert.match(read('services/PollingManager.js'), /id: 'generator'/);
   assert.match(read('public/cards.css'), /\.grid-card\.generator-card \.ep-grid-state\[data-state="on"\]/);
   console.log('ok - generator card is registered, editable and styled');

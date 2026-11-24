@@ -181,7 +181,7 @@ const DOCUMENTED_WEATHER = ['air_temp', 'min_air_temp', 'max_air_temp', 'dewpoin
   console.log('ok - the settings test');
 
   // ── Wiring ──
-  const srv = read('server.js').slice(read('server.js').indexOf("app.post('/api/settings/solar'"));
+  const srv = read('routes/settings.js').slice(read('routes/settings.js').indexOf("router.post('/settings/solar'"));
   assert.ok(srv.includes("'solcast_daily_limit', 'solcast_weather'"), 'the solar settings route saves them');
   assert.ok(solar.FORECAST_CACHE_KEYS.includes('solcast_weather') && solar.FORECAST_CACHE_KEYS.includes('solcast_daily_limit'));
   const { validateNumericConfig } = require(path.join(REPO, 'modules/configValidation'));

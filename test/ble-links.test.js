@@ -38,8 +38,8 @@ const { BleHelper, bleLinkCount } = require(path.join(REPO, 'modules/ble'));
 
   const helper = fs.readFileSync(path.join(REPO, 'modules/ble/ble_helper.py'), 'utf8');
   assert.match(helper, /"set_max_links": cmd_set_max_links,/);
-  assert.match(fs.readFileSync(path.join(REPO, 'server.js'), 'utf8'),
-    /if \(has\('bms_devices'\) \|\| has\('dongle_config'\)\) require\('\.\/modules\/ble'\)\.updateMaxLinks\(\);/);
+  assert.match(fs.readFileSync(path.join(REPO, 'routes/settings.js'), 'utf8'),
+    /if \(has\('bms_devices'\) \|\| has\('dongle_config'\)\) require\('\.\.\/modules\/ble'\)\.updateMaxLinks\(\);/);
   console.log('ok - saving Bluetooth inverters or BMS updates a running helper');
 
   const dongle = fs.readFileSync(path.join(REPO, 'modules/dongle.js'), 'utf8');

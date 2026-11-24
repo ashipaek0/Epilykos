@@ -47,7 +47,7 @@ const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
   assert.equal(m.readCollapsed({ getItem() { throw new Error('blocked'); } }), false, 'blocked storage: tabs stay shown');
 
   // Wiring: the setting is saved, served to visitors and shown in Settings; Controls left the header.
-  for (const f of ['server.js', 'routes/metrics.js', 'modules/database.js']) assert.match(read(f), /'tabs_position'/, f + ' knows tabs_position');
+  for (const f of ['routes/settings.js', 'routes/metrics.js', 'modules/database.js']) assert.match(read(f), /'tabs_position'/, f + ' knows tabs_position');
   assert.match(read('public/settings.html'), /name="tabs_position"/);
   assert.match(read('public/settings.html'), /<option value="off">No tabs/, 'Settings offers No tabs');
   const dash = read('public/js/dashboard.js');

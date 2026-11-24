@@ -188,7 +188,7 @@ const sessionAuth = require('../modules/sessionAuth');
   for (const key of ['dashboard_title', 'solar_latitude', 'savings_rate', 'forecast_enabled', 'log_level', 'ha_devices', 'dongle_config', 'square_corners']) {
     assert.equal(isProtectedKey(key), false, `${key} is an ordinary setting`);
   }
-  assert.match(server, /isProtectedKey\(key\)/, '/api/settings uses it');
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'routes/settings.js'), 'utf8'), /isProtectedKey\(key\)/, '/api/settings uses it');
   console.log('ok - /api/settings refuses the settings that have their own route');
 
   // ── The page adopts the new token and posts sign-out ───────────────────
