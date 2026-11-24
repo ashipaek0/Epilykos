@@ -220,21 +220,21 @@ check('invalidate: unrelated false', () => {
   });
 
   // ---- (G) settings-save hook wired (static checks) ----
-  check('hook: server.js calls shouldInvalidateForecastCache+clearForecastCache', () => {
-    const srv = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  check('hook: the settings routes call shouldInvalidateForecastCache+clearForecastCache', () => {
+    const srv = fs.readFileSync(path.join(__dirname, '..', 'routes', 'settings.js'), 'utf8');
     assert.ok(srv.includes('shouldInvalidateForecastCache'), 'helper not referenced');
     assert.ok(srv.includes('clearForecastCache()'), 'clear call not wired');
   });
   check('hook: solar per-section route accepts the S2 default keys', () => {
-    const srv = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
-    const solarSlice = srv.slice(srv.indexOf('/api/settings/solar'));
+    const srv = fs.readFileSync(path.join(__dirname, '..', 'routes', 'settings.js'), 'utf8');
+    const solarSlice = srv.slice(srv.indexOf('/settings/solar'));
     assert.ok(solarSlice.includes('forecast_default_source'), 'solar route missing forecast_default_source');
     assert.ok(solarSlice.includes('weather_default_source'), 'solar route missing weather_default_source');
   });
   check('hook: data-sources route writes no forecast keys (no hook needed)', () => {
-    const srv = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
-    const dsStart = srv.indexOf('/api/settings/data-sources');
-    const dsSlice = srv.slice(dsStart, srv.indexOf('/api/settings/metrics'));
+    const srv = fs.readFileSync(path.join(__dirname, '..', 'routes', 'settings.js'), 'utf8');
+    const dsStart = srv.indexOf('/settings/data-sources');
+    const dsSlice = srv.slice(dsStart, srv.indexOf('/settings/metrics'));
     for (const k of solar.FORECAST_CACHE_KEYS) {
       assert.ok(!dsSlice.includes(`'${k}'`), `data-sources slice unexpectedly mentions ${k}`);
     }
