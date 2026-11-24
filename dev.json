@@ -1,18 +1,26 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "45427052954.1",
-    "version": "1.3.9-dev+52cbc07",
-    "commit": "52cbc0774fd3ccad959b209f1add0a8d7a2e8f01",
-    "digest": "sha256:ee97ac201807a9f01e01ff0f0576b7bf625143edfeb019948fa042b0278e5e32",
+    "buildId": "45481221399.1",
+    "version": "1.3.10-dev+07bdc38",
+    "commit": "07bdc3811d32f433c1c78f1c8a284fd4d91eacef",
+    "digest": "sha256:e9ae562fb871058be16d81f4a752b980cdd4ff94cd3675878a585359ca294545",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-24T15:34:40Z",
+    "builtAt": "2026-11-24T20:29:09Z",
     "kind": "release",
-    "notes": [
-      "Test: set the session cookie flags in the automations API test (#432)"
-    ]
+    "notes": []
   },
   "history": [
+    {
+      "buildId": "45481221399.1",
+      "version": "1.3.10-dev+07bdc38",
+      "commit": "07bdc3811d32f433c1c78f1c8a284fd4d91eacef",
+      "digest": "sha256:e9ae562fb871058be16d81f4a752b980cdd4ff94cd3675878a585359ca294545",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-24T20:29:09Z",
+      "kind": "release",
+      "notes": []
+    },
     {
       "buildId": "45427052954.1",
       "version": "1.3.9-dev+52cbc07",
@@ -358,18 +366,6 @@
       "notes": [
         "Notifications: rules that combine up to three metrics (all or any), with three ready-made templates (#399)",
         "Modbus: read 32- and 64-bit values whole, input registers (function 04) and word order; fix the Deye 16-bit types (#400)"
-      ]
-    },
-    {
-      "buildId": "44534665102.1",
-      "version": "1.3.5-dev+afd929e",
-      "commit": "afd929eaab63dadf7fddab9916dd788465901c50",
-      "digest": "sha256:981d60c9dd8cfe5a757f338aecc3e5f21a2fd08ed843368e68c1eb63bf2f4224",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-19T13:33:57Z",
-      "kind": "release",
-      "notes": [
-        "Settings → Health: setup checks with a fix link each, and warnings you can hide (#397)"
       ]
     }
   ]
