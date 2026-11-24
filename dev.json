@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "45427101181.1",
-    "version": "1.3.9-dev+173dd66",
-    "commit": "173dd66b33188ae7c82d7947ba3e73de6a88517a",
-    "digest": "sha256:7d17da2727eee76ac1f1b8a08cae8f448740b316fd559f223ef349f32bb1425d",
+    "buildId": "45427052954.1",
+    "version": "1.3.9-dev+52cbc07",
+    "commit": "52cbc0774fd3ccad959b209f1add0a8d7a2e8f01",
+    "digest": "sha256:ee97ac201807a9f01e01ff0f0576b7bf625143edfeb019948fa042b0278e5e32",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-24T15:35:05Z",
+    "builtAt": "2026-11-24T15:34:40Z",
     "kind": "release",
     "notes": [
       "Test: set the session cookie flags in the automations API test (#432)"
     ]
   },
   "history": [
+    {
+      "buildId": "45427052954.1",
+      "version": "1.3.9-dev+52cbc07",
+      "commit": "52cbc0774fd3ccad959b209f1add0a8d7a2e8f01",
+      "digest": "sha256:ee97ac201807a9f01e01ff0f0576b7bf625143edfeb019948fa042b0278e5e32",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-24T15:34:40Z",
+      "kind": "release",
+      "notes": [
+        "Test: set the session cookie flags in the automations API test (#432)"
+      ]
+    },
     {
       "buildId": "45427101181.1",
       "version": "1.3.9-dev+173dd66",
@@ -358,18 +370,6 @@
       "kind": "release",
       "notes": [
         "Settings → Health: setup checks with a fix link each, and warnings you can hide (#397)"
-      ]
-    },
-    {
-      "buildId": "44533355884.1",
-      "version": "1.3.5-dev+c19828b",
-      "commit": "c19828b45fabb01792849ecd6b6e0067e4f23cfd",
-      "digest": "sha256:fba83fcf48541c2d32e81250fedd72c4b7a37bd369d81eda149d7aadd08cf489",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-19T13:26:05Z",
-      "kind": "release",
-      "notes": [
-        "Layout editor: Browse presets, a gallery of ready-made dashboards that ship with the app (#396)"
       ]
     }
   ]
