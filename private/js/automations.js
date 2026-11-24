@@ -275,8 +275,9 @@ function condRow(c, i) {
       h('div', { class: 'au-c' },
         h('input', { class: 'au-num', 'aria-label': 'Value', value: num(c.value), inputmode: 'decimal', onchange: touch(e => { c.value = e.target.value; }) }),
         m && m.unit ? h('span', { class: 'au-t' }, m.unit) : null,
-        c.metric ? h('span', { class: 'au-now' }, m ? `now ${typeof m.value === 'number' ? m.value.toLocaleString() : m.value}${m.unit ? ' ' + m.unit : ''}${m.ageS >= 600 ? ` (${Math.round(m.ageS / 60)} min ago)` : ''}` : 'no reading yet') : null),
+        null),
       lineButtons(draft.when, i, 'condition', more)),
+    c.metric ? h('div', { class: 'au-sub au-nowline' }, h('span', { class: 'au-now' }, m ? `now ${typeof m.value === 'number' ? m.value.toLocaleString() : m.value}${m.unit ? ' ' + m.unit : ''}${m.ageS >= 600 ? ` (updated ${Math.round(m.ageS / 60)} min ago)` : ''}` : 'no reading yet')) : null,
     showMargin && marginable(c) ? marginLine(c, m) : null);
 }
 
