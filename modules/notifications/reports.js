@@ -74,7 +74,9 @@ async function daySummary(which = 'today') {
       const { computeTodaySolar } = require('../solar');
       const live = computeTodaySolar();
       how.liveSolar = Number.isFinite(live) ? round(live, 2) : null;
-      if (Number.isFinite(live) && live > solar) { t.daily_solar = live; how.usedLive = true; }
+      // The recorded total (what the charts show) leads. The live figure only stands in before one is recorded, or
+      // when it is a little ahead of it (not written yet): a far larger live figure is a bad reading, not sunshine.
+      if (Number.isFinite(live) && live > solar && (solar <= 0 || live <= solar * 1.1 + 0.5)) { t.daily_solar = live; how.usedLive = true; }
     } catch (_) { /* snapshot value stands */ }
   }
   lines.push(`☀️ Solar: ${kwh(t.daily_solar || solar)}`);
@@ -93,8 +95,9 @@ async function daySummary(which = 'today') {
   }
   if (which !== 'yesterday') {
     try {
-      const { getSavings } = require('../savings');
-      const s = await getSavings();
+      // Worth the same solar figure the summary shows, so the two cannot disagree.
+      const s = require('../solarValue').computeSavings({ todaySolarKwh: t.daily_solar || solar });
+      how.savedPrice = round(s.todayPrice, 2);
       if (s && Number(s.today) > 0) lines.push(`💰 Saved: ${s.currency || ''}${round(s.today, 2)}`);
     } catch (_) { /* savings not set up */ }
   }

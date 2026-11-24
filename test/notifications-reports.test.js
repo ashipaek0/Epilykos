@@ -112,6 +112,21 @@ test('day summary reads the day totals and grid time', async () => {
   assert.match(y.body, /No energy totals recorded/);
 });
 
+test('day summary ignores a wild live solar figure and prices savings from the figure it shows', async () => {
+  const db = getDb();
+  const { start } = reports.dayBounds(today);
+  db.prepare('DELETE FROM history WHERE timestamp >= ?').run(start);
+  db.prepare('INSERT INTO history (timestamp, daily_solar) VALUES (?, ?)').run(start + 600, 7.2);
+  setConfig('savings_solar_metric', 'pv_wild');
+  const now = Math.floor(Date.now() / 1000);
+  db.prepare('INSERT OR REPLACE INTO latest_metrics (metric, value, timestamp, unit) VALUES (?, ?, ?, ?)').run('pv_wild', 48.1, now, 'kWh');
+  solar.computeTodaySolar({ fresh: true });
+  const r = await reports.daySummary('today');
+  assert.match(r.body, /☀️ Solar: 7\.2 kWh/);
+  assert.doesNotMatch(r.body, /48/);
+  setConfig('savings_solar_metric', '');
+});
+
 test('status report uses the role metrics', async () => {
   setConfig('role_metrics', JSON.stringify({ solar: 'PV Power', battery_soc: 'Battery SOC', consumption: 'Load Power' }));
   const now = Math.floor(Date.now() / 1000);
