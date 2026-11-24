@@ -1,119 +1,120 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dt" data-theme="light">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow">
   <title>Automations · Epilykos</title>
   <script>
-    // Apply the saved theme before first paint (same rules as js/theme.js).
+    // Apply the saved theme before first paint ('theme' is shared with the dashboard and Settings).
     (function() {
       var t = null;
-      try { t = localStorage.getItem('theme'); } catch (e) {}
-      if (!t) t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      try { t = localStorage.getItem('theme') || localStorage.getItem('epilykos-theme'); } catch (e) {}
+      if (t !== 'light' && t !== 'dark') t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       document.documentElement.setAttribute('data-theme', t);
     })();
   </script>
   <link rel="stylesheet" href="/style.css">
-  <link rel="stylesheet" href="/cards.css">
-  <link rel="stylesheet" href="/glass.css">
-  <link rel="stylesheet" href="/settings-shell.css">
-  <link rel="stylesheet" href="/private/css/private.css">
+  <link rel="stylesheet" href="/settings-redesign.css">
+  <link rel="stylesheet" href="/settings-shell.css?v=8">
+  <link rel="stylesheet" href="/settings-datum.css?v=1">
   <link rel="stylesheet" href="/private/css/automations.css">
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/svg+xml" href="/icons/epilykos-mark.svg">
 </head>
-<body class="st ct-page au-page">
-  <a class="st-skip" href="#ct-main">Skip to the automations</a>
-  <div class="st-shell">
-  <nav class="ct-nav" aria-label="Automations">
-    <div class="ct-nav-top">
-      <a href="/" class="ct-back">← Dashboard</a>
+<body class="st">
+<a class="st-skip" href="#st-main">Skip to automations</a>
+
+<div class="st-shell">
+
+  <nav class="st-nav" id="st-nav" aria-label="Automations">
+    <div class="st-nav-top">
+      <a href="/" class="st-back"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 18l-6-6 6-6"/></svg> Dashboard</a>
+      <button type="button" class="st-icon-btn st-only-narrow" id="st-nav-close" aria-label="Close menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
-    <p class="ct-nav-title">Automations</p>
-    <ul class="ct-nav-list">
-      <li><a href="/controls" class="ct-nav-link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Controls</span></a></li>
-      <li><a href="#au-list-section" class="ct-nav-link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><span>Automations</span></a></li>
-      <li><a href="#au-log-section" class="ct-nav-link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg><span>Logs</span></a></li>
+    <p class="st-nav-title">Automations</p>
+    <ul class="st-nav-list" id="st-nav-list">
+      <li><a href="/controls" class="st-nav-link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="7" cy="18" r="2"/></svg><span class="st-nav-label">Controls</span><span class="st-nav-meta"></span></a></li>
+      <li><a href="#au-list-section" class="st-nav-link" aria-current="page"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><span class="st-nav-label">Automations</span><span class="st-nav-meta"></span></a></li>
+      <li><a href="#au-log-section" class="st-nav-link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg><span class="st-nav-label">Logs</span><span class="st-nav-meta"></span></a></li>
     </ul>
-    <div class="ct-nav-foot">
-      <span class="ct-nav-foot-label">Theme</span>
-      <button id="theme-toggle" class="theme-toggle ct-theme" type="button" aria-label="Switch between light and dark"><span class="theme-icon">☾</span></button>
+    <div class="st-nav-foot">
+      <span class="st-nav-foot-label" id="st-theme-label">Theme</span>
+      <div class="st-seg" role="radiogroup" aria-labelledby="st-theme-label" id="st-theme">
+        <button type="button" role="radio" data-theme-choice="light" aria-checked="false">Light</button>
+        <button type="button" role="radio" data-theme-choice="dark" aria-checked="false">Dark</button>
+        <button type="button" role="radio" data-theme-choice="auto" aria-checked="false">Auto</button>
+      </div>
     </div>
   </nav>
+  <div class="st-scrim" id="st-scrim" hidden></div>
 
   <div class="st-main-wrap">
-  <main id="ct-main" class="st-main ct-main" tabindex="-1">
-   <div class="ct-content">
-    <header class="ct-head">
-      <h1>Automations</h1>
-      <div class="ct-bar ct-lock" id="ct-lock" role="region" aria-label="Lock and pause switch">
-        <div class="ct-bar-lock">
-          <svg class="ct-lock-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path class="ct-lock-shackle" d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
-          <div class="ct-lock-state">
-            <h2 id="ct-lock-title" class="ct-lock-title">Locked</h2>
-            <p class="ct-lock-text" id="ct-lock-text">Unlock to save or turn on an automation.</p>
-          </div>
-          <form class="ct-lock-form" id="ct-unlock-form" autocomplete="off">
-            <label for="ct-password" class="pv-visually-hidden">Password</label>
-            <input id="ct-password" type="password" autocomplete="current-password" placeholder="Password" required>
-            <button type="submit" class="ct-btn ct-btn-primary">Unlock</button>
-          </form>
-          <button type="button" class="ct-btn" id="ct-lock-now" hidden>Lock now</button>
-        </div>
-        <div class="ct-bar-switches">
-          <div class="ct-chip" title="Stops every automation at once. They start again when you turn this off.">
-            <span class="ct-chip-name" id="au-pause-label">Pause all</span>
-            <button type="button" class="ct-toggle" id="au-pause" role="switch" aria-checked="false" aria-labelledby="au-pause-label"></button>
-          </div>
-        </div>
-        <p class="ct-msg" id="ct-lock-msg" role="status" aria-live="polite"></p>
-      </div>
+    <header class="st-mobilebar st-only-narrow">
+      <button type="button" class="st-icon-btn" id="st-nav-open" aria-label="Open menu" aria-controls="st-nav" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <span class="st-mobilebar-title">Automations</span>
+      <a href="/" class="st-icon-btn" aria-label="Back to dashboard"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 11l9-7 9 7v9H3z"/><path d="M10 20v-6h4v6"/></svg></a>
     </header>
 
-    <section class="st-card ct-section" id="au-list-section" aria-labelledby="au-list-title">
-      <div class="st-card-head">
-        <h2 id="au-list-title">Your automations</h2>
-        <button type="button" class="ct-btn ct-btn-primary" id="au-new">New automation</button>
-      </div>
-      <p class="ct-help">Automations apply to devices when set conditions hold, and bypass the &lsquo;Allow device changes&rsquo; toggle. <strong>Take over</strong> an automation first to keep manual changes, or the automation will override them.</p>
-      <p class="ct-msg" id="au-msg" role="status" aria-live="polite"></p>
-      <div id="au-list" class="au-list"></div>
-    </section>
+    <main class="st-main" id="st-main" tabindex="-1">
+      <div id="main-content">
+        <section class="st-section" id="section-automations" aria-labelledby="h-automations">
+          <div class="st-section-head">
+            <div><h1 id="h-automations">Automations</h1><p class="st-lede">Switch devices and change settings by themselves when conditions you choose hold.</p></div>
+          </div>
 
-    <section class="st-card ct-section" id="au-editor" aria-labelledby="au-editor-title" hidden>
-      <div class="st-card-head"><h2 id="au-editor-title">New automation</h2></div>
-      <form id="au-form" autocomplete="off"></form>
-    </section>
+          <div class="st-card" id="au-lock-card">
+            <div class="st-card-head"><h2>Unlock</h2><span class="st-badge" id="au-lock-badge">Locked</span></div>
+            <p class="st-help" id="ct-lock-text">Unlock to save or turn on an automation.</p>
+            <form id="ct-unlock-form" autocomplete="off">
+              <div class="st-field"><label for="ct-password">Admin password</label><input id="ct-password" class="input" type="password" autocomplete="current-password" required></div>
+              <div class="st-inline-actions"><button type="submit" class="st-btn st-btn-primary">Unlock</button></div>
+            </form>
+            <div class="st-inline-actions"><button type="button" class="st-btn" id="ct-lock-now" hidden>Lock now</button></div>
+            <p class="st-help" id="ct-lock-msg" role="status" aria-live="polite"></p>
+            <div class="st-toggle-row"><span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="au-pause"><span class="slider"></span></label><label for="au-pause">Pause all automations</label></span></div>
+            <p class="st-help">Stops every automation at once. Starting them again needs your password.</p>
+          </div>
 
-    <section class="st-card ct-section" id="au-log-section" aria-labelledby="au-log-title">
-      <div class="st-card-head">
-        <h2 id="au-log-title">Logs</h2>
-        <button type="button" class="ct-btn" id="au-log-refresh">Refresh</button>
+          <div class="st-card" id="au-list-section">
+            <div class="st-card-head"><h2>Your automations</h2><button type="button" class="st-btn st-btn-primary" id="au-new">New automation</button></div>
+            <p class="st-help">Automations apply to devices when set conditions hold, and bypass the &lsquo;Allow device changes&rsquo; toggle. <strong>Take over</strong> an automation first to keep manual changes, or the automation will override them.</p>
+            <p class="st-help" id="au-msg" role="status" aria-live="polite"></p>
+            <div id="au-list" class="au-list"></div>
+          </div>
+
+          <div class="st-card" id="au-editor" hidden>
+            <div class="st-card-head"><h2 id="au-editor-title">New automation</h2></div>
+            <form id="au-form" autocomplete="off"></form>
+          </div>
+
+          <div class="st-card" id="au-log-section">
+            <div class="st-card-head"><h2>Logs</h2><button type="button" class="st-btn" id="au-log-refresh">Refresh</button></div>
+            <div class="st-table-scroll"><table class="st-table" id="au-log">
+              <thead><tr><th scope="col">When</th><th scope="col">Automation</th><th scope="col">Change</th><th scope="col">Result</th></tr></thead>
+              <tbody></tbody>
+            </table></div>
+          </div>
+        </section>
       </div>
-      <div class="ct-table-wrap"><table class="ct-table" id="au-log">
-        <thead><tr><th scope="col">When</th><th scope="col">Automation</th><th scope="col">Change</th><th scope="col">Result</th></tr></thead>
-        <tbody></tbody>
-      </table></div>
-    </section>
-   </div>
-  </main>
+    </main>
   </div>
-  </div>
+</div>
 
-  <dialog id="ct-dialog" class="ct-dialog" aria-labelledby="ct-dialog-title">
-    <form method="dialog">
-      <h2 id="ct-dialog-title"></h2>
-      <p id="ct-dialog-text"></p>
-      <div class="ct-dialog-actions">
-        <button value="cancel" class="ct-btn" id="ct-dialog-cancel">Cancel</button>
-        <button value="ok" class="ct-btn ct-btn-primary" id="ct-dialog-ok"></button>
-      </div>
-    </form>
-  </dialog>
+<dialog id="ct-dialog" class="st-dialog" aria-labelledby="ct-dialog-title">
+  <form method="dialog" class="st-dialog-form">
+    <h2 id="ct-dialog-title" class="st-dialog-title"></h2>
+    <div class="st-dialog-body"><p id="ct-dialog-text"></p></div>
+    <div class="st-dialog-actions">
+      <button value="cancel" class="st-btn" id="ct-dialog-cancel">Cancel</button>
+      <button value="ok" class="st-btn st-btn-primary" id="ct-dialog-ok"></button>
+    </div>
+  </form>
+</dialog>
 
-  <script src="/js/csrf.js"></script>
-  <script defer src="/js/secret-reveal.js"></script>
-  <script type="module" src="/private/js/automations.js"></script>
+<script src="/js/csrf.js"></script>
+<script defer src="/js/secret-reveal.js"></script>
+<script type="module" src="/private/js/automations.js"></script>
+<script src="/js/settings-datum.js?v=1"></script>
 </body>
 </html>

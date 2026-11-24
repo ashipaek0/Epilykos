@@ -4,8 +4,6 @@
  *
  * @module automations
  */
-import { initTheme, toggleTheme } from '/js/theme.js';
-
 const $ = id => document.getElementById(id);
 const OPS = { gt: 'is above', gte: 'is at or above', lt: 'is below', lte: 'is at or below', eq: 'equals', neq: 'does not equal' };
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -34,6 +32,9 @@ function h(tag, attrs, ...kids) {
     else if (k === 'value') el.value = v;
     else el.setAttribute(k, v === true ? '' : v);
   }
+  // Settings' field look (settings-datum.css) is keyed on these classes.
+  if (tag === 'input' && !['checkbox', 'radio'].includes(el.type)) { el.classList.add('input'); if (!el.getAttribute('type')) el.type = 'text'; }
+  if (tag === 'select') el.classList.add('select-input');
   for (const kid of kids.flat()) if (kid !== null && kid !== undefined && kid !== false) el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
   return el;
 }
@@ -53,9 +54,10 @@ const unlocked = () => !!data.unlockedUntil && data.unlockedUntil + clockSkew > 
 function setLock(until) {
   data.unlockedUntil = until;
   const on = unlocked();
-  $('ct-lock').classList.toggle('is-unlocked', on);
   $('ct-unlock-form').hidden = on; $('ct-lock-now').hidden = !on;
-  $('ct-lock-title').textContent = on ? 'Unlocked' : 'Locked';
+  const badge = $('au-lock-badge');
+  badge.textContent = on ? 'Unlocked' : 'Locked';
+  badge.className = 'st-badge' + (on ? ' is-ok' : '');
   clearInterval(countdown);
   const tick = () => {
     if (!unlocked()) { clearInterval(countdown); if (on) setLock(null); return; }
@@ -104,12 +106,12 @@ function sentence(a) {
 // ── List ──
 function statusOf(a) {
   if (!a.enabled) return { text: 'Off', cls: '' };
-  if (data.paused) return { text: 'All paused', cls: 'is-paused' };
-  if (a.takenOver) return { text: a.paused_until === -1 ? 'Taken over' : 'Taken over until ' + new Date(a.paused_until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), cls: 'is-paused' };
+  if (data.paused) return { text: 'All paused', cls: '' };
+  if (a.takenOver) return { text: a.paused_until === -1 ? 'Taken over' : 'Taken over until ' + new Date(a.paused_until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), cls: '' };
   const s = a.status;
-  if (!s) return { text: 'Starting', cls: 'is-wait' };
-  if (s.note) return { text: s.pending ? 'Waiting' : 'Waiting for data', cls: 'is-wait' };
-  return { text: s.active ? 'Conditions met' : 'Conditions not met', cls: 'is-on' };
+  if (!s) return { text: 'Starting', cls: 'is-warn' };
+  if (s.note) return { text: s.pending ? 'Waiting' : 'Waiting for data', cls: 'is-warn' };
+  return { text: s.active ? 'Conditions met' : 'Conditions not met', cls: 'is-ok' };
 }
 async function takeOver(a, how) {
   const r = await api('POST', `/${a.id}/takeover`, how);
@@ -121,24 +123,24 @@ function card(a) {
   const needsUnlock = () => { if (!unlocked()) { say('au-msg', 'Unlock first (top of the page).', true); return true; } return false; };
   const actions = h('div', { class: 'au-actions' },
     a.enabled
-      ? h('button', { type: 'button', class: 'ct-btn', onclick: async () => { const r = await api('POST', `/${a.id}/disable`); say('au-msg', r.ok ? `"${a.name}" is off.` : r.data.error, !r.ok); load(); } }, 'Turn off')
-      : h('button', { type: 'button', class: 'ct-btn ct-btn-primary', onclick: async () => {
+      ? h('button', { type: 'button', class: 'st-btn', onclick: async () => { const r = await api('POST', `/${a.id}/disable`); say('au-msg', r.ok ? `"${a.name}" is off.` : r.data.error, !r.ok); load(); } }, 'Turn off')
+      : h('button', { type: 'button', class: 'st-btn st-btn-primary', onclick: async () => {
         if (needsUnlock()) return;
         if (!await ask({ title: `Turn on "${a.name}"?`, text: 'It will change your devices by itself from now on, even when "Allow device changes" is off. Use "Test" first to see what it would do right now.', ok: 'Turn on' })) return;
         const r = await api('POST', `/${a.id}/enable`); say('au-msg', r.ok ? `"${a.name}" is on.` : r.data.error, !r.ok); load();
       } }, 'Turn on'),
     a.enabled && (a.takenOver
-      ? h('button', { type: 'button', class: 'ct-btn', onclick: async () => { await api('POST', `/${a.id}/resume`); load(); } }, 'Resume')
-      : [h('button', { type: 'button', class: 'ct-btn', title: 'Stop this automation for an hour so you can change its settings by hand', onclick: () => takeOver(a, { hours: 1 }) }, 'Take over for 1 h'),
-        h('button', { type: 'button', class: 'ct-btn', title: 'Stop this automation until you resume it', onclick: () => takeOver(a, { untilResumed: true }) }, 'Take over until I resume')]),
-    h('button', { type: 'button', class: 'ct-btn', onclick: () => testIt(a) }, 'Test'),
-    h('button', { type: 'button', class: 'ct-btn', onclick: () => openEditor(a) }, 'Edit'),
-    h('button', { type: 'button', class: 'ct-btn ct-btn-danger', onclick: async () => {
+      ? h('button', { type: 'button', class: 'st-btn', onclick: async () => { await api('POST', `/${a.id}/resume`); load(); } }, 'Resume')
+      : [h('button', { type: 'button', class: 'st-btn', title: 'Stop this automation for an hour so you can change its settings by hand', onclick: () => takeOver(a, { hours: 1 }) }, 'Take over for 1 h'),
+        h('button', { type: 'button', class: 'st-btn', title: 'Stop this automation until you resume it', onclick: () => takeOver(a, { untilResumed: true }) }, 'Take over until I resume')]),
+    h('button', { type: 'button', class: 'st-btn', onclick: () => testIt(a) }, 'Test'),
+    h('button', { type: 'button', class: 'st-btn', onclick: () => openEditor(a) }, 'Edit'),
+    h('button', { type: 'button', class: 'st-btn st-btn-danger', onclick: async () => {
       if (!await ask({ title: `Delete "${a.name}"?`, text: 'It stops at once. Devices stay as they are.', ok: 'Delete' })) return;
       await api('DELETE', `/${a.id}`); load();
     } }, 'Delete'));
   return h('article', { class: 'au-card' + (a.enabled ? '' : ' is-off') },
-    h('div', { class: 'au-card-top' }, h('h3', { class: 'au-name' }, a.name), h('span', { class: 'au-status ' + st.cls }, st.text)),
+    h('div', { class: 'au-card-top' }, h('h3', { class: 'au-name' }, a.name), h('span', { class: 'st-badge ' + st.cls }, st.text)),
     h('p', { class: 'au-sentence' }, sentence(a)),
     a.enabled && a.status && a.status.note ? h('p', { class: 'au-note' }, a.status.note) : null,
     actions, h('div', { class: 'au-result', hidden: true, id: `au-test-${a.id}` }));
@@ -146,8 +148,7 @@ function card(a) {
 function render() {
   const list = $('au-list');
   list.replaceChildren(...(data.automations.length ? data.automations.map(card) : [h('p', { class: 'au-empty' }, 'No automations yet. Choose "New automation" to make one.')]));
-  const p = $('au-pause');
-  p.setAttribute('aria-checked', String(data.paused)); p.textContent = data.paused ? 'On' : 'Off';
+  $('au-pause').checked = data.paused;
 }
 async function load() {
   const r = await api('GET', '');
@@ -157,9 +158,11 @@ async function load() {
   if (r.data.unlockedUntil) setLock(r.data.unlockedUntil);
   if (!editingId || !$('au-editor').contains(document.activeElement)) render();
 }
-$('au-pause').addEventListener('click', async () => {
-  if (data.paused && !unlocked()) return say('au-msg', 'Unlock first (top of the page).', true);
-  const r = await api('POST', '/pause-all', { paused: !data.paused });
+$('au-pause').addEventListener('change', async e => {
+  const want = e.target.checked;
+  e.target.checked = !want;   // the switch moves once the server agrees
+  if (!want && !unlocked()) return say('au-msg', 'Unlock first (top of the page).', true);
+  const r = await api('POST', '/pause-all', { paused: want });
   if (r.ok) { data = { ...data, ...r.data }; render(); say('au-msg', data.paused ? 'All automations are paused.' : 'Automations are running again.'); } else say('au-msg', r.data.error, true);
 });
 
@@ -197,10 +200,10 @@ function openEditor(a) {
 function closeEditor() { $('au-editor').hidden = true; draft = null; editingId = null; render(); }
 
 const num = v => (v === '' || v === null || v === undefined ? '' : v);
-function field(label, input, cls) { const id = 'au-f' + Math.random().toString(36).slice(2, 8); input.id = id; return h('div', { class: 'ct-field ' + (cls || '') }, h('label', { for: id }, label), input); }
+function field(label, input, cls) { const id = 'au-f' + Math.random().toString(36).slice(2, 8); input.id = id; return h('div', { class: 'st-field ' + (cls || '') }, h('label', { for: id }, label), input); }
 
 function condRow(c, i) {
-  const del = h('button', { type: 'button', class: 'ct-btn', 'aria-label': `Remove condition ${i + 1}`, onclick: () => { draft.when.splice(i, 1); drawEditor(); } }, 'Remove');
+  const del = h('button', { type: 'button', class: 'st-btn', 'aria-label': `Remove condition ${i + 1}`, onclick: () => { draft.when.splice(i, 1); drawEditor(); } }, 'Remove');
   const type = h('select', { onchange: e => { draft.when[i] = e.target.value === 'time' ? { type: 'time', from: '09:00', to: '16:00' } : blankCond(); drawEditor(); } },
     h('option', { value: 'metric', selected: c.type === 'metric' }, 'A reading'), h('option', { value: 'time', selected: c.type === 'time' }, 'Time of day'));
   if (c.type === 'time') {
@@ -210,7 +213,7 @@ function condRow(c, i) {
     } }), d)));
     return h('div', { class: 'au-row' }, field('Type', type, 'au-narrow'),
       field('From', h('input', { type: 'time', value: c.from, onchange: e => { c.from = e.target.value; } })), field('To', h('input', { type: 'time', value: c.to, onchange: e => { c.to = e.target.value; } })),
-      h('div', { class: 'ct-field' }, h('label', {}, 'Days'), days), del);
+      h('div', { class: 'st-field' }, h('label', {}, 'Days'), days), del);
   }
   const listId = 'au-metrics';
   return h('div', { class: 'au-row' }, field('Type', type, 'au-narrow'),
@@ -239,17 +242,17 @@ function stepRow(list, s, i) {
   groups.map(g => h('optgroup', { label: g }, catalog.targets.filter(t => t.group === g).map(t => h('option', { value: t.key, selected: !!entry && entry.key === t.key }, t.label)))));
   const ops = entry ? entry.ops : [];
   const opSel = h('select', { onchange: e => { s.op = e.target.value; drawEditor(true); } }, ops.map(o => h('option', { value: o, selected: s.op === o }, o === 'set' ? 'Set to' : o === 'on' ? 'Turn on' : 'Turn off')));
-  const move = (d, label) => h('button', { type: 'button', class: 'ct-btn', 'aria-label': label, onclick: () => { const j = i + d; if (j < 0 || j >= list.length) return; [list[i], list[j]] = [list[j], list[i]]; drawEditor(true); } }, d < 0 ? '↑' : '↓');
+  const move = (d, label) => h('button', { type: 'button', class: 'st-btn', 'aria-label': label, onclick: () => { const j = i + d; if (j < 0 || j >= list.length) return; [list[i], list[j]] = [list[j], list[i]]; drawEditor(true); } }, d < 0 ? '↑' : '↓');
   return h('div', { class: 'au-row' }, field('Device or setting', sel), entry ? field('Action', opSel, 'au-narrow') : null, valueInput(entry, s),
     list.length > 1 ? [move(-1, `Move action ${i + 1} up`), move(1, `Move action ${i + 1} down`)] : null,
-    h('button', { type: 'button', class: 'ct-btn', 'aria-label': `Remove action ${i + 1}`, onclick: () => { list.splice(i, 1); drawEditor(true); } }, 'Remove'));
+    h('button', { type: 'button', class: 'st-btn', 'aria-label': `Remove action ${i + 1}`, onclick: () => { list.splice(i, 1); drawEditor(true); } }, 'Remove'));
 }
 
 function drawEditor(keepFocus) {
   const f = $('au-form');
-  const stepsBlock = (key, title, help) => h('div', { class: 'au-block' }, h('h3', {}, title), help ? h('p', { class: 'ct-help', style: 'margin:0' }, help) : null,
+  const stepsBlock = (key, title, help) => h('div', { class: 'au-block' }, h('h3', {}, title), help ? h('p', { class: 'st-help' }, help) : null,
     draft[key].map((s, i) => stepRow(draft[key], s, i)),
-    h('div', {}, h('button', { type: 'button', class: 'ct-btn', onclick: () => { draft[key].push(blankStep()); drawEditor(true); } }, key === 'then' ? 'Add another action' : 'Add an action')));
+    h('div', {}, h('button', { type: 'button', class: 'st-btn', onclick: () => { draft[key].push(blankStep()); drawEditor(true); } }, key === 'then' ? 'Add another action' : 'Add an action')));
   f.replaceChildren(
     h('datalist', { id: 'au-metrics' }, catalog.metrics.map(m => h('option', { value: m.name }))),
     h('div', { class: 'au-form-grid' },
@@ -258,19 +261,19 @@ function drawEditor(keepFocus) {
         h('div', { class: 'au-inline' }, 'These must be true:', h('select', { onchange: e => { draft.join = e.target.value; } },
           h('option', { value: 'all', selected: draft.join === 'all' }, 'All of them'), h('option', { value: 'any', selected: draft.join === 'any' }, 'Any one of them'))),
         draft.when.map((c, i) => condRow(c, i)),
-        h('div', {}, h('button', { type: 'button', class: 'ct-btn', onclick: () => { draft.when.push(blankCond()); drawEditor(true); } }, 'Add a condition')),
+        h('div', {}, h('button', { type: 'button', class: 'st-btn', onclick: () => { draft.when.push(blankCond()); drawEditor(true); } }, 'Add a condition')),
         h('div', { class: 'au-inline' }, 'and have held for at least', h('input', { type: 'number', min: 0, step: 1, value: draft.for_s, 'aria-label': 'Seconds the conditions must hold', onchange: e => { draft.for_s = e.target.value; } }), 'seconds.'),
         h('div', { class: 'au-inline' }, 'Ignore readings older than', h('input', { type: 'number', min: 1, step: 1, value: Math.round(draft.max_age_s / 60), 'aria-label': 'Minutes after which a reading is ignored', onchange: e => { draft.max_age_s = Number(e.target.value) * 60; } }), 'minutes (it does nothing if a reading is that old).')),
       stepsBlock('then', 'Then', 'Kept like this while the conditions hold. Several actions run in order, e.g. the settings that together switch grid charging on.'),
       stepsBlock('else', 'Otherwise (optional)', 'Kept like this when the conditions do not hold. Leave empty to leave things as they are.'),
       h('div', { class: 'au-result', id: 'au-editor-result', hidden: true }),
-      h('p', { class: 'ct-msg', id: 'au-editor-msg', role: 'status', 'aria-live': 'polite' }),
+      h('p', { class: 'st-help', id: 'au-editor-msg', role: 'status', 'aria-live': 'polite' }),
       h('div', { class: 'au-form-actions' },
-        h('button', { type: 'button', class: 'ct-btn', onclick: async () => {
+        h('button', { type: 'button', class: 'st-btn', onclick: async () => {
           const r = await api('POST', '/dry-run', clean()); if (!r.ok) return say('au-editor-msg', r.data.error, true); say('au-editor-msg', ''); showResult($('au-editor-result'), r.data);
         } }, 'Test now'),
-        h('button', { type: 'submit', class: 'ct-btn ct-btn-primary' }, editingId ? 'Save changes' : 'Save (turned off)'),
-        h('button', { type: 'button', class: 'ct-btn', onclick: closeEditor }, 'Cancel'))));
+        h('button', { type: 'submit', class: 'st-btn st-btn-primary' }, editingId ? 'Save changes' : 'Save (turned off)'),
+        h('button', { type: 'button', class: 'st-btn', onclick: closeEditor }, 'Cancel'))));
   if (!keepFocus) $('au-form').querySelector('input')?.focus();
 }
 function clean() {
@@ -299,8 +302,36 @@ async function loadLog() {
 }
 $('au-log-refresh').addEventListener('click', loadLog);
 
-initTheme();
-$('theme-toggle')?.addEventListener('click', toggleTheme);
+// ── Theme and menu (the same behaviour as Settings) ──
+const mql = window.matchMedia('(prefers-color-scheme: dark)');
+const storedTheme = () => { try { return localStorage.getItem('theme') || localStorage.getItem('epilykos-theme'); } catch { return null; } };
+function applyTheme(choice) {
+  document.documentElement.setAttribute('data-theme', choice === 'auto' ? (mql.matches ? 'dark' : 'light') : choice);
+  document.querySelectorAll('[data-theme-choice]').forEach(b => b.setAttribute('aria-checked', String(b.dataset.themeChoice === choice)));
+}
+function setTheme(choice) {
+  try {
+    if (choice === 'auto') { localStorage.removeItem('theme'); localStorage.removeItem('epilykos-theme'); }
+    else { localStorage.setItem('theme', choice); localStorage.setItem('epilykos-theme', choice); }
+  } catch { /* private mode */ }
+  applyTheme(choice);
+}
+{
+  const t = storedTheme();
+  applyTheme(t === 'light' || t === 'dark' ? t : 'auto');
+  mql.addEventListener('change', () => { if (!storedTheme()) applyTheme('auto'); });
+  $('st-theme').addEventListener('click', e => { const b = e.target.closest('[data-theme-choice]'); if (b) setTheme(b.dataset.themeChoice); });
+}
+function openNav() { document.body.classList.add('st-nav-open'); $('st-scrim').hidden = false; $('st-nav-open').setAttribute('aria-expanded', 'true'); }
+function closeNav() {
+  if (!document.body.classList.contains('st-nav-open')) return;
+  document.body.classList.remove('st-nav-open'); $('st-scrim').hidden = true; $('st-nav-open').setAttribute('aria-expanded', 'false');
+}
+$('st-nav-open').addEventListener('click', openNav);
+$('st-nav-close').addEventListener('click', closeNav);
+$('st-scrim').addEventListener('click', closeNav);
+$('st-nav-list').addEventListener('click', closeNav);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeNav(); });
 (async () => {
   const c = await api('GET', '/catalog');
   if (c.ok) catalog = c.data;
