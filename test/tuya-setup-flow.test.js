@@ -33,7 +33,7 @@ test('the login QR is drawn by the server, not a third-party site', async () => 
   const js = read('public/settings.js');
   assert.ok(!/qrserver|create-qr-code/.test(js + html), 'no external QR service');
   assert.match(js, /tuyaQrImg\.src = 'data:image\/svg\+xml/);
-  assert.match(read('server.js'), /result\.qr_svg = await require\('qrcode'\)\.toString\(result\.qr_url, \{ type: 'svg'/);
+  assert.match(read('routes/tuya.js'), /result\.qr_svg = await require\('qrcode'\)\.toString\(result\.qr_url, \{ type: 'svg'/);
   const svg = await require('qrcode').toString('tuyaSmart--qrLogin?token=abc', { type: 'svg', margin: 1, width: 220 });
   assert.match(svg, /^<svg[\s\S]*<\/svg>\s*$/);
 });
