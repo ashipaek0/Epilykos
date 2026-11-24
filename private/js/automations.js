@@ -214,10 +214,10 @@ function condRow(c, i) {
   }
   const listId = 'au-metrics';
   return h('div', { class: 'au-row' }, field('Type', type, 'au-narrow'),
-    field('Reading', h('input', { list: listId, value: c.metric, placeholder: 'e.g. battery_soc', onchange: e => { c.metric = e.target.value.trim(); drawEditor(true); } })),
+    field('Reading', h('input', { list: listId, value: c.metric, onchange: e => { c.metric = e.target.value.trim(); drawEditor(true); } })),
     field('Is', h('select', { onchange: e => { c.operator = e.target.value; } }, Object.entries(OPS).map(([k, v]) => h('option', { value: k, selected: c.operator === k }, v))), 'au-narrow'),
     field('Value', h('input', { value: num(c.value), inputmode: 'decimal', onchange: e => { c.value = e.target.value; } }), 'au-narrow'),
-    field('Margin', h('input', { value: num(c.hysteresis), inputmode: 'decimal', placeholder: 'optional', title: 'Once true, it stays true until the reading is this far back past the value (stops flapping)', onchange: e => { c.hysteresis = e.target.value; } }), 'au-narrow'),
+    field('Margin (optional)', h('input', { value: num(c.hysteresis), inputmode: 'decimal', title: 'Once true, it stays true until the reading is this far back past the value (stops flapping)', onchange: e => { c.hysteresis = e.target.value; } }), 'au-narrow'),
     (() => { const m = catalog.metrics.find(x => x.name === c.metric); return h('p', { class: 'au-note', style: 'flex-basis:100%;margin:0' }, c.metric ? (m ? `Now: ${m.value}${m.unit ? ' ' + m.unit : ''} (updated ${m.ageS < 90 ? m.ageS + ' s' : Math.round(m.ageS / 60) + ' min'} ago)` : 'No reading with that name yet.') : ''); })(),
     del);
 }
@@ -253,7 +253,7 @@ function drawEditor(keepFocus) {
   f.replaceChildren(
     h('datalist', { id: 'au-metrics' }, catalog.metrics.map(m => h('option', { value: m.name }))),
     h('div', { class: 'au-form-grid' },
-      field('Name', h('input', { value: draft.name, maxlength: 80, required: true, placeholder: 'e.g. Geyser on surplus sun', onchange: e => { draft.name = e.target.value; } })),
+      field('Name', h('input', { value: draft.name, maxlength: 80, required: true, onchange: e => { draft.name = e.target.value; } })),
       h('div', { class: 'au-block' }, h('h3', {}, 'When'),
         h('div', { class: 'au-inline' }, 'These must be true:', h('select', { onchange: e => { draft.join = e.target.value; } },
           h('option', { value: 'all', selected: draft.join === 'all' }, 'All of them'), h('option', { value: 'any', selected: draft.join === 'any' }, 'Any one of them'))),
