@@ -343,14 +343,15 @@ const lastLog = () => controls.recentLog(1)[0];
       const src = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
       assert.match(src, /app\.post\('\/api\/action', isAuthenticated, deviceControls\.requireUnlocked,/);
       assert.match(src, /app\.use\('\/api\/controls', isAuthenticated, require\('\.\/routes\/controls'\)\)/);
-      assert.ok((src.match(/logged\('(done|failed)'/g) || []).length >= 3);
+      const actions = fs.readFileSync(path.join(__dirname, '..', 'modules', 'deviceActions.js'), 'utf8');
+      assert.ok((actions.match(/logged\('(done|failed)'/g) || []).length >= 3);
       const settings = fs.readFileSync(path.join(__dirname, '..', 'public', 'settings.js'), 'utf8');
       assert.ok(!/sendDongleRegisterWrite/.test(settings));
       assert.match(settings, /link\.href = '\/controls'/);
       for (const f of ['modules/dongle.js', 'modules/modbus.js']) assert.ok(!/parseInt\(value\) \|\| 0/.test(fs.readFileSync(path.join(__dirname, '..', f), 'utf8')), `${f}: no "0 on a typo"`);
       // Every card source is behind "Allow device changes", checked before the device is looked up.
-      const action = src.slice(src.indexOf("app.post('/api/action'"), src.indexOf("// Bluetooth BMS — built-in"));
-      assert.ok(action.indexOf('deviceControls.writeRefusal()') > 0 && action.indexOf('deviceControls.writeRefusal()') < action.indexOf('resolveActionDevice('), 'switch checked for every source');
+      const action = actions;
+      assert.ok(action.indexOf('deviceControls.writeRefusal()') > 0 && action.indexOf('deviceControls.writeRefusal()') < action.indexOf('resolveActionDevice(source, spec.device'), 'switch checked for every source');
       assert.ok((action.match(/logged\('refused'/g) || []).length >= 3, 'refusals are logged');
       assert.match(action, /listedSettingFor\(device, entity\)[\s\S]*changeSetting\(/, 'listed dongle settings go through changeSetting');
     });

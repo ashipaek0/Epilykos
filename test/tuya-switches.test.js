@@ -118,9 +118,9 @@ print(json.dumps(dp_mapping(d)))
 });
 
 test('selectors send HA the field its service wants, and MQTT the value', () => {
-  const server = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+  const server = fs.readFileSync(path.join(ROOT, 'modules/deviceActions.js'), 'utf8');
   assert.match(server, /'select\.select_option': 'option'/);
-  assert.match(server, /executeHAAction\(device, action, entity, haServiceData\(action, params\)\)/);
+  assert.match(server, /adapters\.ha\(device, action, entity, haServiceData\(action, params\)\)/);
   assert.match(server, /let payload = params\?\.payload !== undefined && params\?\.payload !== null \? params\.payload : params\?\.value;/);
   assert.match(fs.readFileSync(path.join(ROOT, 'public/js/components/stateSelectBlock.js'), 'utf8'), /container\.dataset\.metric = device \? '' : \(config\.metric \|\| config\.entity/);
 });
@@ -131,8 +131,8 @@ test('a toggle keeps the change through a stale reading; Tuya writes the new val
   assert.match(sw, /if \(held && \(container\.dataset\.pending === 'on'\) !== isOn\) return;/);
   const ss = fs.readFileSync(path.join(ROOT, 'public/js/components/stateSelectBlock.js'), 'utf8');
   assert.match(ss, /if \(held && container\.dataset\.pending !== currentValue\) return;/);
-  const server = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
-  assert.match(server, /result = await executeTuyaAction\(device, dpNumber, actionValue\);[\s\S]{0,400}queueMetricValue\(entity, actionValue/);
+  const server = fs.readFileSync(path.join(ROOT, 'modules/deviceActions.js'), 'utf8');
+  assert.match(server, /result = await adapters\.tuya\(device, dpNumber, actionValue\);[\s\S]{0,400}adapters\.recordMetric\(entity, actionValue/);
 });
 
 test('Home Assistant select and input_select entities can be mapped and driven', async () => {
