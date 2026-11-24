@@ -211,7 +211,7 @@ function updateSummary() {
   el.hidden = !ready;
   if (!ready) return;
   const d = { ...draft, for_s: Number(draft.for_s) || 0, else: draft.else.filter(x => x.target) };
-  el.replaceChildren(...sentence(d));
+  el.replaceChildren(h('small', {}, 'In plain words'), ...sentence(d));
 }
 const touch = fn => e => { fn(e); updateSummary(); };
 
@@ -221,10 +221,36 @@ function lineButtons(list, i, what) {
     h('button', { type: 'button', class: 'st-btn st-btn-danger-text au-remove', 'aria-label': `Remove ${what} ${i + 1}`, onclick: () => { list.splice(i, 1); drawEditor(true); } }, 'Remove')];
 }
 
+/** Only a threshold with a number has a margin. */
+const marginable = c => ['gt', 'gte', 'lt', 'lte'].includes(c.operator);
+const trim = n => String(Math.round(n * 1e6) / 1e6);
+/** The margin is kept as a distance; it is shown as the level the reading has to get back past. */
+function marginLine(c, m) {
+  const up = c.operator === 'gt' || c.operator === 'gte', v = Number(c.value);
+  if (c.value === '' || !Number.isFinite(v)) return h('div', { class: 'au-sub' }, 'Set the value above first, then the margin.');
+  const hasMargin = c.hysteresis !== undefined && c.hysteresis !== '' && Number.isFinite(Number(c.hysteresis));
+  const level = hasMargin ? trim(up ? v - Number(c.hysteresis) : v + Number(c.hysteresis)) : '';
+  return h('div', { class: 'au-sub' }, up ? 'Stays true until it drops below' : 'Stays true until it rises above',
+    h('input', { class: 'au-num', 'aria-label': 'Level the reading has to get back past', value: level, inputmode: 'decimal', onchange: touch(e => {
+      const x = Number(e.target.value);
+      c.hysteresis = e.target.value === '' || !Number.isFinite(x) ? '' : String(Math.max(0, Math.abs(v - x)));
+    }) }), m && m.unit ? h('span', {}, m.unit) : null, h('span', { class: 'au-hint' }, '· a margin, so it does not flap'));
+}
+
 function condRow(c, i) {
   const lab = h('span', { class: 'au-lab' }, i === 0 ? 'IF' : draft.join === 'any' ? 'OR' : 'AND');
-  const type = h('select', { class: 'au-type', 'aria-label': 'Type', onchange: e => { draft.when[i] = e.target.value === 'time' ? { type: 'time', from: '09:00', to: '16:00' } : blankCond(); drawEditor(true); } },
-    h('option', { value: 'metric', selected: c.type === 'metric' }, 'A reading'), h('option', { value: 'time', selected: c.type === 'time' }, 'Time of day'));
+  // One list for what the condition looks at: a reading, or the time of day.
+  const names = catalog.metrics.map(m => m.name);
+  if (c.type === 'metric' && c.metric && !names.includes(c.metric)) names.unshift(c.metric);
+  const type = h('select', { class: 'au-type', 'aria-label': 'Reading or time of day', onchange: e => {
+    const v = e.target.value;
+    if (v === '\u0000time') draft.when[i] = { type: 'time', from: '09:00', to: '16:00' };
+    else if (c.type === 'metric') c.metric = v;
+    else draft.when[i] = { ...blankCond(), metric: v };
+    drawEditor(true); updateSummary();
+  } }, c.type === 'metric' && !c.metric ? h('option', { value: '' }, 'Choose a reading…') : null,
+  names.map(n => h('option', { value: n, selected: c.type === 'metric' && c.metric === n }, n)),
+  h('option', { value: '\u0000time', selected: c.type === 'time' }, 'Time of day'));
   if (c.type === 'time') {
     const days = h('span', { class: 'au-days' }, DAYS.map((d, n) => {
       const on = !c.days || c.days.includes(n);
@@ -238,21 +264,19 @@ function condRow(c, i) {
         h('input', { type: 'time', 'aria-label': 'From', value: c.from, onchange: touch(e => { c.from = e.target.value; }) }), h('span', { class: 'au-t' }, 'and'),
         h('input', { type: 'time', 'aria-label': 'To', value: c.to, onchange: touch(e => { c.to = e.target.value; }) }),
         h('span', { class: 'au-sp' }), lineButtons(draft.when, i, 'condition')),
-      h('div', { class: 'au-sub' }, 'Days', days));
+      h('div', { class: 'au-sub' }, 'On these days', days));
   }
   const m = catalog.metrics.find(x => x.name === c.metric);
-  const more = h('button', { type: 'button', class: 'st-btn au-more', 'aria-expanded': String(!!c._more), onclick: () => { c._more = !c._more; drawEditor(true); } }, 'More');
+  const more = marginable(c) ? h('button', { type: 'button', class: 'st-btn au-more', 'aria-expanded': String(!!c._more), onclick: () => { c._more = !c._more; drawEditor(true); } }, 'More') : null;
   const showMargin = c._more || (c.hysteresis !== undefined && c.hysteresis !== '');
   return h('div', { class: 'au-cond' },
     h('div', { class: 'au-line' }, lab, type,
-      h('input', { class: 'au-reading', list: 'au-metrics', 'aria-label': 'Reading', value: c.metric, onchange: e => { c.metric = e.target.value.trim(); drawEditor(true); updateSummary(); } }),
-      h('select', { 'aria-label': 'Is', onchange: touch(e => { c.operator = e.target.value; }) }, Object.entries(OPS).map(([k, v]) => h('option', { value: k, selected: c.operator === k }, v))),
+      h('select', { 'aria-label': 'Is', onchange: e => { c.operator = e.target.value; drawEditor(true); updateSummary(); } }, Object.entries(OPS).map(([k, v]) => h('option', { value: k, selected: c.operator === k }, v))),
       h('input', { class: 'au-num', 'aria-label': 'Value', value: num(c.value), inputmode: 'decimal', onchange: touch(e => { c.value = e.target.value; }) }),
       m && m.unit ? h('span', { class: 'au-t' }, m.unit) : null,
-      c.metric ? h('span', { class: 'au-now' }, m ? `now ${m.value}${m.unit ? ' ' + m.unit : ''}${m.ageS >= 90 ? ` (${Math.round(m.ageS / 60)} min ago)` : ''}` : 'no reading yet') : null,
+      c.metric ? h('span', { class: 'au-now' }, m ? `now ${typeof m.value === 'number' ? m.value.toLocaleString() : m.value}${m.unit ? ' ' + m.unit : ''}${m.ageS >= 90 ? ` (${Math.round(m.ageS / 60)} min ago)` : ''}` : 'no reading yet') : null,
       h('span', { class: 'au-sp' }), more, lineButtons(draft.when, i, 'condition')),
-    showMargin ? h('div', { class: 'au-sub' }, 'Margin (optional)', h('input', { class: 'au-num', 'aria-label': 'Margin (optional)', value: num(c.hysteresis), inputmode: 'decimal', onchange: touch(e => { c.hysteresis = e.target.value; }) }),
-      h('span', { class: 'au-hint' }, 'Once true, it stays true until the reading is this far back past the value (stops flapping).')) : null);
+    showMargin && marginable(c) ? marginLine(c, m) : null);
 }
 
 function valueInput(entry, s) {
@@ -278,10 +302,14 @@ function stepRow(list, s, i) {
   return h('div', { class: 'au-line' }, h('span', { class: 'au-idx' }, String(i + 1)), sel, opSel, valueInput(entry, s), h('span', { class: 'au-sp' }), lineButtons(list, i, 'action'));
 }
 
+/** "True for" is kept in seconds; shown in minutes when it is a whole number of them. */
+function forShown() { const sec = Number(draft.for_s) || 0; return sec >= 60 && sec % 60 === 0 ? { n: sec / 60, unit: 'minutes' } : { n: sec, unit: 'seconds' }; }
+function setFor(n, unit) { const x = Number(n); draft.for_s = Number.isFinite(x) && x >= 0 ? Math.round(x * (unit === 'minutes' ? 60 : 1)) : 0; }
+
 function drawEditor(keepFocus) {
   const f = $('au-form');
   const stepBlock = (key, n, title, help, addLabel) => h('section', { class: 'au-step' },
-    h('h3', {}, h('span', { class: 'au-n' }, n), title), h('p', { class: 'st-help' }, help),
+    h('h3', {}, h('span', { class: 'au-n' }, n), title, key === 'else' ? h('span', { class: 'au-opt' }, 'optional') : null), h('p', { class: 'st-help' }, help),
     draft[key].map((s, i) => stepRow(draft[key], s, i)),
     h('button', { type: 'button', class: 'st-btn au-add', onclick: () => { draft[key].push(blankStep()); drawEditor(true); } }, addLabel));
   const choice = (value, label) => h('button', { type: 'button', 'aria-pressed': String(draft.join === value), onclick: () => { draft.join = value; drawEditor(true); updateSummary(); } }, label);
@@ -291,14 +319,14 @@ function drawEditor(keepFocus) {
     h('p', { class: 'au-says', id: 'au-says', hidden: true }),
     h('section', { class: 'au-step' },
       h('h3', {}, h('span', { class: 'au-n' }, '1'), 'When'),
-      h('div', { class: 'au-inline' }, 'These must be true:', h('span', { class: 'au-choice', role: 'group', 'aria-label': 'How the conditions combine' }, choice('all', 'All of them'), choice('any', 'Any one of them'))),
+      h('p', { class: 'st-help au-checked' }, 'Checked about every 15 seconds. ', h('span', { class: 'au-choice', role: 'group', 'aria-label': 'How the conditions combine' }, choice('all', 'All of these'), choice('any', 'Any of these'))),
       draft.when.map((c, i) => condRow(c, i)),
-      h('button', { type: 'button', class: 'st-btn au-add', onclick: () => { draft.when.push(blankCond()); drawEditor(true); } }, 'Add a condition'),
-      h('div', { class: 'au-inline au-first' }, 'and have held for at least', h('input', { class: 'au-num', type: 'number', min: 0, step: 1, value: draft.for_s, 'aria-label': 'Seconds the conditions must hold', onchange: touch(e => { draft.for_s = e.target.value; }) }), 'seconds.'),
-      h('div', { class: 'au-inline' }, 'Ignore readings older than', h('input', { class: 'au-num', type: 'number', min: 1, step: 1, value: Math.round(draft.max_age_s / 60), 'aria-label': 'Minutes after which a reading is ignored', onchange: e => { draft.max_age_s = Number(e.target.value) * 60; } }), 'minutes.'),
-      h('p', { class: 'st-help' }, 'If a reading is older than this, the automation does nothing.')),
-    stepBlock('then', '2', 'Then', 'Kept like this while the conditions hold. Several actions run in order, e.g. the settings that together switch grid charging on.', 'Add another action'),
-    stepBlock('else', '3', 'Otherwise (optional)', 'Kept like this when the conditions do not hold. Leave empty to leave things as they are.', 'Add an action'),
+      h('button', { type: 'button', class: 'st-btn au-add', onclick: () => { draft.when.push(blankCond()); drawEditor(true); } }, '+ Add a condition'),
+      h('div', { class: 'au-inline au-first' }, 'Act only once it has been true for', h('input', { class: 'au-num', type: 'number', min: 0, step: 1, 'aria-label': 'How long the conditions must hold', value: forShown().n, onchange: touch(e => { setFor(e.target.value, $('au-for-unit').value); }) }),
+        h('select', { id: 'au-for-unit', 'aria-label': 'Unit', onchange: touch(e => { setFor($('au-for-unit').previousSibling.value, e.target.value); }) }, h('option', { value: 'seconds', selected: forShown().unit === 'seconds' }, 'seconds'), h('option', { value: 'minutes', selected: forShown().unit === 'minutes' }, 'minutes'))),
+      h('div', { class: 'au-inline' }, 'Ignore a reading older than', h('input', { class: 'au-num', type: 'number', min: 1, step: 1, value: Math.round(draft.max_age_s / 60), 'aria-label': 'Minutes after which a reading is ignored', onchange: e => { draft.max_age_s = Number(e.target.value) * 60; } }), 'minutes. If a reading is older, nothing happens.')),
+    stepBlock('then', '2', 'Then', 'Kept like this while the conditions hold. Several actions run in order.', '+ Add another action'),
+    stepBlock('else', '3', 'Otherwise', 'Kept like this when the conditions stop holding.', '+ Add an action'),
     h('div', { class: 'au-result', id: 'au-editor-result', hidden: true }),
     h('div', { class: 'au-bar' },
       h('button', { type: 'submit', class: 'st-btn st-btn-primary' }, editingId ? 'Save changes' : 'Save (turned off)'),
@@ -306,7 +334,8 @@ function drawEditor(keepFocus) {
         const r = await api('POST', '/dry-run', clean()); if (!r.ok) return say('au-editor-msg', r.data.error, true); say('au-editor-msg', ''); showResult($('au-editor-result'), r.data);
       } }, 'Test now'),
       h('button', { type: 'button', class: 'st-btn', onclick: closeEditor }, 'Cancel'),
-      h('span', { class: 'st-help au-bar-msg', id: 'au-editor-msg', role: 'status', 'aria-live': 'polite' })));
+      h('span', { class: 'st-help au-bar-msg', id: 'au-editor-msg', role: 'status', 'aria-live': 'polite' }),
+      h('span', { class: 'st-help au-bar-hint' }, 'Test reads your devices and sends nothing.')));
   updateSummary();
   if (!keepFocus) $('au-form').querySelector('input')?.focus();
 }

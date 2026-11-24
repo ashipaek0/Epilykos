@@ -18,6 +18,11 @@
 .au-says { border-left: 3px solid var(--dt-acc, var(--st-amber)); margin: 22px 0 8px; padding: 2px 0 2px 16px; font-size: 1rem; line-height: 1.55; }
 .au-says[hidden] { display: none; }
 .au-says b { font-weight: 800; }
+.au-says small { display: block; color: var(--dt-acc, var(--st-amber)); font-weight: 800; letter-spacing: .07em; text-transform: uppercase; font-size: .7rem; margin-bottom: 2px; }
+.au-checked { margin: 0 0 12px; }
+.au-opt { color: var(--st-muted); font-weight: 600; font-size: .9rem; }
+.au-editor-head { margin-bottom: 24px; }
+.au-editor-head .st-help { margin: 0; }
 .au-step { padding: 28px 0 8px; border-top: 1px solid var(--st-line-soft, var(--st-line)); margin-top: 26px; }
 .au-step > h3 { margin: 0 0 4px; font-size: 1.15rem; font-weight: 700; display: flex; gap: 12px; align-items: baseline; }
 .au-n { color: var(--dt-acc, var(--st-amber)); font-weight: 800; }
@@ -51,7 +56,9 @@
 .au-result ul { margin: 6px 0 0; padding-left: 18px; }
 .au-result[hidden] { display: none; }
 .au-bar { position: sticky; bottom: 0; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; margin-top: 26px; padding: 16px 0 18px; background: linear-gradient(transparent, var(--dt-bg, var(--st-bg, var(--st-panel))) 30%); }
-.au-bar-msg { margin: 0 0 0 auto; }
+.au-bar-msg { margin: 0; }
+.au-bar-msg:empty { display: none; }
+.au-bar .au-bar-hint { margin: 0 0 0 auto; }
 @media (max-width: 640px) {
   .au-lab, .au-idx { width: auto; padding-bottom: 0; flex: 1 1 100%; }
   .au-line > select, .au-line > input { flex: 1 1 40%; }
@@ -64,5 +71,5 @@ html.dt body.st .au-line select, html.dt body.st .au-line input, html.dt body.st
 html.dt body.st .au-line .au-num, html.dt body.st .au-inline .au-num, html.dt body.st .au-sub .au-num { width: 5.5rem; text-align: right; }
 html.dt body.st .au-line .au-reading { width: 12rem; }
 html.dt body.st .au-line .au-device { width: 17rem; }
-html.dt body.st .au-line .au-type { width: 10.5rem; }
+html.dt body.st .au-line .au-type { width: 13rem; }
 html.dt body.st .au-line input[type="time"] { width: 8.5rem; }
