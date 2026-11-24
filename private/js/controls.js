@@ -8,7 +8,6 @@
  */
 import { controlBuilders } from '/js/components/index.js';
 import { updateCards } from '/js/cards-update.js';
-import { initTheme, toggleTheme } from '/js/theme.js';
 import { filterChips, matchesFilter } from '/js/components/controlStyle.js';
 import { applyBlockStyle } from '/js/components/blockStyle.js';
 
@@ -34,7 +33,7 @@ function ask({ title, text, ok, danger = false, check = '' }) {
   $('ct-dialog-text').textContent = text;
   const okBtn = $('ct-dialog-ok');
   okBtn.textContent = ok;
-  okBtn.className = 'ct-btn ' + (danger ? 'ct-btn-danger' : 'ct-btn-primary');
+  okBtn.className = 'st-btn ' + (danger ? 'st-btn-danger' : 'st-btn-primary');
   const wrap = $('ct-dialog-check-wrap'), box = $('ct-dialog-check');
   wrap.hidden = !check; box.checked = false; $('ct-dialog-check-text').textContent = check;
   okBtn.disabled = !!check;
@@ -61,6 +60,7 @@ function setStatus(s) {
   $('ct-unlock-form').hidden = on;
   $('ct-lock-now').hidden = !on;
   $('ct-lock-title').textContent = on ? 'Unlocked' : 'Locked';
+  $('ct-lock-title').className = 'st-badge' + (on ? ' is-ok' : '');
   clearInterval(countdown);
   const tick = () => {
     if (!unlocked()) { clearInterval(countdown); if (on) setStatus({ unlockedUntil: null }); return; }
@@ -199,9 +199,9 @@ function settingRow(dev, s) {
   row.innerHTML = `<th scope="row"><div class="ct-set-name"></div><div class="ct-help"></div></th>
     <td class="ct-current" aria-live="polite">—</td>
     <td><label class="pv-visually-hidden" for="${id}"></label>${isSwitch || isSelect
-      ? `<select id="${id}" class="ct-input"><option value="">Choose</option></select>`
-      : `<input type="${isTime ? 'time' : 'number'}" id="${id}" class="ct-input">`}</td>
-    <td class="ct-row-actions"><button type="button" class="ct-btn ct-read">Read</button> <button type="button" class="ct-btn ct-btn-primary ct-change" data-needs-unlock>Change</button></td>`;
+      ? `<select id="${id}" class="ct-input select-input"><option value="">Choose</option></select>`
+      : `<input type="${isTime ? 'time' : 'number'}" id="${id}" class="ct-input input">`}</td>
+    <td class="ct-row-actions"><button type="button" class="st-btn ct-read">Read</button> <button type="button" class="st-btn st-btn-primary ct-change" data-needs-unlock>Change</button></td>`;
   row.querySelector('.ct-set-name').textContent = s.label;
   row.querySelector('.ct-help').textContent = s.description;
   row.querySelector('label').textContent = `New value for ${s.label}`;
@@ -313,7 +313,7 @@ async function loadDevices() {
     card.className = 'ct-device';
     const head = document.createElement('div');
     head.className = 'ct-section-head';
-    head.innerHTML = '<h3></h3><button type="button" class="ct-btn">Read all</button>';
+    head.innerHTML = '<h3></h3><button type="button" class="st-btn">Read all</button>';
     head.querySelector('h3').textContent = `${dev.name} · ${dev.profileName}`;
     const table = document.createElement('table');
     table.className = 'ct-table ct-settings';
@@ -322,7 +322,7 @@ async function loadDevices() {
     for (const s of dev.settings) { const [row, msg, read] = settingRow(dev, s); table.tBodies[0].append(row, msg); reads.push(read); }
     head.querySelector('button').addEventListener('click', async () => { for (const read of reads) await read(); });
     if (/^luxpower-geta/.test(String(dev.profile))) {
-      const verify = document.createElement('button'); verify.type = 'button'; verify.className = 'ct-btn'; verify.textContent = 'Download verification';
+      const verify = document.createElement('button'); verify.type = 'button'; verify.className = 'st-btn'; verify.textContent = 'Download verification';
       const note = document.createElement('p'); note.className = 'ct-help'; note.setAttribute('role', 'status');
       verify.addEventListener('click', async () => {
         verify.disabled = true; note.textContent = 'Reading identity, measurements and controls; no settings will be changed…';
@@ -410,8 +410,36 @@ $('ct-log-refresh').addEventListener('click', loadLog);
 
 // ── Start ─────────────────────────────────────────────────────────────────
 
-initTheme();
-$('theme-toggle')?.addEventListener('click', toggleTheme);
+// ── Theme and menu (the same behaviour as Settings) ──
+const mql = window.matchMedia('(prefers-color-scheme: dark)');
+const storedTheme = () => { try { return localStorage.getItem('theme') || localStorage.getItem('epilykos-theme'); } catch { return null; } };
+function applyTheme(choice) {
+  document.documentElement.setAttribute('data-theme', choice === 'auto' ? (mql.matches ? 'dark' : 'light') : choice);
+  document.querySelectorAll('[data-theme-choice]').forEach(b => b.setAttribute('aria-checked', String(b.dataset.themeChoice === choice)));
+}
+function setTheme(choice) {
+  try {
+    if (choice === 'auto') { localStorage.removeItem('theme'); localStorage.removeItem('epilykos-theme'); }
+    else { localStorage.setItem('theme', choice); localStorage.setItem('epilykos-theme', choice); }
+  } catch { /* private mode */ }
+  applyTheme(choice);
+}
+{
+  const t = storedTheme();
+  applyTheme(t === 'light' || t === 'dark' ? t : 'auto');
+  mql.addEventListener('change', () => { if (!storedTheme()) applyTheme('auto'); });
+  $('st-theme').addEventListener('click', e => { const b = e.target.closest('[data-theme-choice]'); if (b) setTheme(b.dataset.themeChoice); });
+}
+function openNav() { document.body.classList.add('st-nav-open'); $('st-scrim').hidden = false; $('st-nav-open').setAttribute('aria-expanded', 'true'); }
+function closeNav() {
+  if (!document.body.classList.contains('st-nav-open')) return;
+  document.body.classList.remove('st-nav-open'); $('st-scrim').hidden = true; $('st-nav-open').setAttribute('aria-expanded', 'false');
+}
+$('st-nav-open').addEventListener('click', openNav);
+$('st-nav-close').addEventListener('click', closeNav);
+$('st-scrim').addEventListener('click', closeNav);
+$('st-nav-list').addEventListener('click', closeNav);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeNav(); });
 (async () => {
   const s = await api('/status');
   setStatus(s.data);
