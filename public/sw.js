@@ -46,7 +46,7 @@ const STATIC_ASSETS = [
   '/icons/splash-1024-dark.png'
 ];
 
-const PRIVATE_PATH = /^\/(showcase|controls|private|settings|editor|setup|login)(\/|\.html|$)/;
+const PRIVATE_PATH = /^\/(showcase|controls|automations|private|settings|editor|setup|login)(\/|\.html|$)/;
 
 // ── Runtime state (received via postMessage) ──────────────────────────
 let localURL = '';

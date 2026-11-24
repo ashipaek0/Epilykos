@@ -1872,6 +1872,7 @@ app.post('/api/settings/backup', isAuthenticated, (req, res) => {
 const deviceControls = require('./modules/deviceControls');
 const deviceActions = require('./modules/deviceActions');
 app.use('/api/controls', isAuthenticated, require('./routes/controls'));
+app.use('/api/automations', isAuthenticated, require('./routes/automations'));
 app.post('/api/action', isAuthenticated, deviceControls.requireUnlocked, async (req, res) => {
   const { status, body } = await deviceActions.performAction(req.body || {}, { req });
   res.status(status).json(body);

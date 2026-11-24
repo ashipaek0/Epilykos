@@ -1,6 +1,6 @@
 /**
- * Signed-in pages: the card showcase (/showcase) and device controls
- * (/controls), and their files (/private/js/*, /private/css/*).
+ * Signed-in pages: the card showcase (/showcase), device controls
+ * (/controls) and automations (/automations), and their files (/private/js/*, /private/css/*).
  *
  * Their files live in private/, outside public/, so the public static server
  * can never hand them out. Every request under these paths, whatever its
@@ -16,9 +16,9 @@ const { sendPage } = require('../modules/pagePreload');
 const { serveBundle } = require('../modules/pageBundles');
 
 const PRIVATE_DIR = path.join(__dirname, '..', 'private');
-const PAGES = { '/showcase': 'showcase.html', '/controls': 'controls.html' };
+const PAGES = { '/showcase': 'showcase.html', '/controls': 'controls.html', '/automations': 'automations.html' };
 /** Path prefixes this module owns (the SPA catch-all must leave them alone). */
-const PREFIXES = ['/showcase', '/controls', '/private'];
+const PREFIXES = ['/showcase', '/controls', '/automations', '/private'];
 
 function owns(rawPath) {
   const p = String(rawPath).toLowerCase();   // /SHOWCASE is treated like /showcase
