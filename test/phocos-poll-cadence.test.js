@@ -57,7 +57,7 @@ function payload(block) {
   assert.equal(check.nominalVoltage, 48); assert.equal(check.watts, 5000);
   assert.equal(check.writable, true);
   assert.equal(identityCheck({ raw: {} }), null, 'nothing to show without the identity block');
-  const srv = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const srv = fs.readFileSync(path.join(__dirname, '..', 'routes', 'dongle.js'), 'utf8');
   assert.match(srv, /identityCheck: identityCheck\(data\)/, 'the test route returns it');
   console.log('ok - the Bluetooth Test reports serial, model code and bytes 18/19');
 
