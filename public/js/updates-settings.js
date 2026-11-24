@@ -50,14 +50,26 @@
   var DOCKER_STEPS = ['Downloading the new version', 'Restarting Epilykos on it', 'Checking it is healthy'];
 
   async function api(method, path, body) {
-    var res = await fetch('/api/updates' + path, {
-      method: method,
-      headers: body !== undefined ? { 'Content-Type': 'application/json' } : {},
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-      cache: 'no-store'
-    });
+    var res;
+    try {
+      res = await fetch('/api/updates' + path, {
+        method: method,
+        headers: body !== undefined ? { 'Content-Type': 'application/json' } : {},
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+        cache: 'no-store'
+      });
+    } catch (e) {
+      e.connectionLost = true;     // the connection itself failed (Epilykos restarting, network drop)
+      throw e;
+    }
     var data = await res.json().catch(function () { return {}; });
-    if (!res.ok) throw new Error(data.error || ('Request failed (' + res.status + ')'));
+    if (!res.ok) {
+      var err = new Error(data.error || ('Request failed (' + res.status + ')'));
+      err.status = res.status;
+      // 502-504 and Cloudflare's 520-530 come from a proxy in front of Epilykos, not from Epilykos itself.
+      err.connectionLost = !data.error && (res.status === 502 || res.status === 503 || res.status === 504 || (res.status >= 520 && res.status <= 530));
+      throw err;
+    }
     return data;
   }
 
@@ -398,7 +410,7 @@
 
   // ── Load and actions ─────────────────────────────────────────────────
   async function load() {
-    try { state = await api('GET', ''); }
+    try { state = await api('GET', ''); lastSeen = JSON.stringify(state); }
     catch (e) { painted = null; root.innerHTML = '<div class="st-card"><p class="st-help"></p></div>'; root.querySelector('p').textContent = e.message; return; }
     if (state.applying && !installing) {
       // Opened while an app update is under way: follow it to the end.
@@ -421,19 +433,37 @@
 
   var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
 
-  /** Wait for the restart: first for this app to go away, then for an answer that is not "still installing". */
+  /** Is an update being installed right now, whatever installs it (Docker helper, the appliance, the Windows installer)? */
+  function busyNow(data) { return !!(data.applying || (data.windows && data.windows.applying)); }
+  function buildKey(data) { var i = (data && data.installed) || {}; return [i.version, i.buildId, i.commit, i.builtAt].join('|'); }
+
+  /**
+   * Follow an install to its end, then show what the server says now. It is over once Epilykos has been
+   * away and is back, or has been seen installing and is not any more, or reports a different build.
+   * (Answering "not installing" is not enough: the old Epilykos can still be answering for a few seconds
+   * after the installer started, and that would leave the page showing the update as still waiting.)
+   */
   async function waitForRestart(isHost) {
     var started = Date.now();
+    var before = buildKey(state);
+    var wasAway = false, wasBusy = false;
     await sleep(isHost ? 3000 : 8000);
     while (Date.now() - started < 15 * 60 * 1000) {
       try {
         var data = await api('GET', '');
-        if (!data.applying) { installing = false; state = data; render(); return; }
-        // Answering while still applying: on the appliance the host says which
-        // step; on Docker the helper is finishing its health check.
-        state = data;
-        appStep = isHost ? hostStep(data.applying) : 2;
+        if (busyNow(data)) {
+          wasBusy = true;
+          // Answering while still applying: on the appliance the host says which
+          // step; on Docker the helper is finishing its health check.
+          state = data;
+          appStep = isHost ? hostStep(data.applying) : 2;
+        } else if (wasAway || wasBusy || buildKey(data) !== before || Date.now() - started > 60000) {
+          installing = false; state = data; render();
+          if (buildKey(data) !== before) toast('Updated to Epilykos ' + ((data.installed && data.installed.version) || '') + '.');
+          return;
+        }
       } catch (_) {
+        wasAway = true;
         appStep = 1;               // restarting: Epilykos is away
       }
       render();
@@ -441,6 +471,24 @@
     }
     installing = false;
     load();
+  }
+
+  /**
+   * Keep what the page shows true while it stays open: an update can finish (or be offered) while nobody is
+   * clicking: automatic installs, another tab, a restart this page did not start.
+   */
+  var lastSeen = '';
+  async function refreshQuietly() {
+    if (installing || osWorking()) return;
+    try {
+      var data = await api('GET', '');
+      var snap = JSON.stringify(data);
+      if (installing || snap === lastSeen) return;
+      lastSeen = snap;
+      var changed = buildKey(data) !== buildKey(state);
+      state = data; render();
+      if (changed) toast('Updated to Epilykos ' + ((data.installed && data.installed.version) || '') + '.');
+    } catch (_) { /* away, probably restarting: try again later */ }
   }
 
   async function install(target) {
@@ -463,6 +511,15 @@
       waitForRestart(isHost);
     } catch (e) {
       watching = false;
+      if (e.connectionLost) {
+        // The Update request stays open while Docker downloads, and a proxy in front of Epilykos (a Cloudflare
+        // tunnel gives up after 100 s) or the restart itself can end it. The update carries on without the
+        // request, so follow it as after a normal reply instead of reporting a failure.
+        appStep = 1;
+        render();
+        waitForRestart(isHost);
+        return;
+      }
       installing = false;
       toast(e.message, 'error');
       render();
@@ -543,4 +600,8 @@
   });
 
   load();
+  if (typeof setInterval === 'function' && document.addEventListener) {
+    setInterval(function () { if (!document.hidden) refreshQuietly(); }, 30000);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshQuietly(); });
+  }
 })();
