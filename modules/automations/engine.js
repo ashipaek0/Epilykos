@@ -132,7 +132,7 @@ function createEngine(deps) {
     try {
       if (deps.paused()) return { skipped: 'paused' };
       const nowMs = deps.now();
-      const autos = deps.list().filter(a => a.enabled);
+      const autos = deps.list().filter(a => a.enabled && !(a.paused_until === -1 || a.paused_until > nowMs));   // taken over: left alone
       if (!autos.length) return { ran: 0 };
       const metrics = deps.getMetrics();
       const catalog = deps.catalog();
@@ -159,7 +159,7 @@ function createEngine(deps) {
     return { met: res.met, parts: res.parts, branch, steps, forSeconds: def.for_s };
   }
 
-  const status = id => { const s = states.get(id); return s ? { active: s.active, branch: s.branch, note: s.note, pending: !!s.trueSince && !s.active } : null; };
+  const status = id => { const s = states.get(id); return s ? { active: s.active, branch: s.branch, note: s.note, pending: !!s.trueSince && !s.active, parts: s.parts || [] } : null; };
   const reset = () => states.clear();
   return { tick, dryRun, status, reset };
 }

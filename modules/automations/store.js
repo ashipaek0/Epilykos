@@ -37,6 +37,10 @@ function db() {
       detail TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_automation_runs_auto ON automation_runs (automation_id, id)`);
+    // paused_until: 0 = running, -1 = taken over until resumed, else the time (ms) it resumes by itself.
+    if (!d.prepare('PRAGMA table_info(automations)').all().some(c => c.name === 'paused_until')) {
+      d.exec('ALTER TABLE automations ADD COLUMN paused_until INTEGER NOT NULL DEFAULT 0');
+    }
     tableFor = d;
   }
   return d;
@@ -46,7 +50,7 @@ function rowToAutomation(r) {
   if (!r) return null;
   let def;
   try { def = JSON.parse(r.def_json); } catch (_) { return null; }
-  return { id: r.id, ...def, name: r.name, enabled: !!r.enabled, created_at: r.created_at, updated_at: r.updated_at, updated_by: r.updated_by || '' };
+  return { id: r.id, ...def, name: r.name, enabled: !!r.enabled, created_at: r.created_at, updated_at: r.updated_at, paused_until: r.paused_until || 0, updated_by: r.updated_by || '' };
 }
 const defJson = def => JSON.stringify({ ...def, enabled: undefined, name: undefined });
 
@@ -67,6 +71,13 @@ function setEnabled(id, enabled, by, nowMs = Date.now()) {
   const info = db().prepare('UPDATE automations SET enabled = ?, updated_at = ?, updated_by = ? WHERE id = ?').run(enabled ? 1 : 0, nowMs, by || null, id);
   return info.changes ? get(id) : null;
 }
+/** Take over (pause) one automation until `untilMs`, or until resumed (-1); 0 resumes it. Does not count as an edit. */
+function setPause(id, untilMs) {
+  const info = db().prepare('UPDATE automations SET paused_until = ? WHERE id = ?').run(untilMs, id);
+  return info.changes ? get(id) : null;
+}
+const isTakenOver = (a, nowMs) => a.paused_until === -1 || a.paused_until > nowMs;
+
 function remove(id) { return db().prepare('DELETE FROM automations WHERE id = ?').run(id).changes > 0; }
 
 const s = v => (v === undefined || v === null ? null : String(v).slice(0, 300));
@@ -83,4 +94,4 @@ function recentRuns(limit = 100, automationId) {
     : db().prepare('SELECT * FROM automation_runs ORDER BY id DESC LIMIT ?').all(n);
 }
 
-module.exports = { list, get, create, update, setEnabled, remove, logRun, recentRuns, RUNS_KEEP };
+module.exports = { list, get, create, update, setEnabled, setPause, isTakenOver, remove, logRun, recentRuns, RUNS_KEEP };
