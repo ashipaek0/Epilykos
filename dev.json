@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "45376341153.1",
-    "version": "1.3.9-dev+eb58f57",
-    "commit": "eb58f5743cde850f152a993087c641ccc5f5bbe2",
-    "digest": "sha256:dd5083d26a67c684451ae85c3907915f6b50def2169a4b9b139c99f860c7cda2",
+    "buildId": "45390074966.1",
+    "version": "1.3.9-dev+6158c39",
+    "commit": "6158c390f644b405ffebdc5f809eb6dad93fc1a5",
+    "digest": "sha256:509790fa582cd964ddfcca6fb7f15537a6a8ef741a075b9f83381cd47cdc3f75",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-24T10:36:29Z",
+    "builtAt": "2026-11-24T12:05:13Z",
     "kind": "release",
     "notes": [
-      "Controls page: use Settings' own look (#426)"
+      "Automations editor: one line per condition and action (#427)"
     ]
   },
   "history": [
+    {
+      "buildId": "45390074966.1",
+      "version": "1.3.9-dev+6158c39",
+      "commit": "6158c390f644b405ffebdc5f809eb6dad93fc1a5",
+      "digest": "sha256:509790fa582cd964ddfcca6fb7f15537a6a8ef741a075b9f83381cd47cdc3f75",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-24T12:05:13Z",
+      "kind": "release",
+      "notes": [
+        "Automations editor: one line per condition and action (#427)"
+      ]
+    },
     {
       "buildId": "45376341153.1",
       "version": "1.3.9-dev+eb58f57",
@@ -360,20 +372,6 @@
       "kind": "release",
       "notes": [
         "Notifications: alerts open the page they are about, related alerts share a thread, and a bell lists them (signed-in admins) (#390)"
-      ]
-    },
-    {
-      "buildId": "44332131031.1",
-      "version": "1.3.4-dev+1e5d78b",
-      "commit": "1e5d78b107956b5e15c9e3c3b805f687a0fc587c",
-      "digest": "sha256:3981a47e3be09d30da53e02988b1888eb99f423b1b861d8487d6a42c9894bb23",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-18T15:08:43Z",
-      "kind": "release",
-      "notes": [
-        "Update contribution guidelines for commits and PRs",
-        "Update contribution guidelines for commits and PRs",
-        "Update CONTRIBUTING.md to remove author attribution"
       ]
     }
   ]
