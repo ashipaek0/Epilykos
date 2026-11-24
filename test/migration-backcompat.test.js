@@ -342,7 +342,7 @@ check('AC-40.1|MQTT module: subscriptions derive ONLY from stored device.topics;
 check('AC-40.2|discovery window/cache writes ONLY the separate mqtt_discovery_cache config key — never mqtt_devices (additive invariant, config-store level)', () => {
   const src = read('server.js');
   const start = src.indexOf("'/api/mqtt-discover-topics'");
-  const end = src.indexOf("'/api/modbus/profiles'", start);
+  const end = src.indexOf("'./routes/profiles'", start);
   assert.ok(start > 0 && end > start, 'discovery route region not found');
   const region = src.slice(start, end);
   assert.ok(region.includes("setConfig('mqtt_discovery_cache'"), 'cache persistence under mqtt_discovery_cache missing');
