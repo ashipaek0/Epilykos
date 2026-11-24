@@ -10,17 +10,59 @@
 .au-sentence { margin: 0; font-size: .88rem; line-height: 1.55; color: var(--st-text); overflow-wrap: anywhere; }
 .au-note { margin: 0; font-size: .78rem; color: var(--st-muted); }
 .au-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.au-form-grid { display: grid; gap: 22px; }
-.au-block { display: grid; gap: 12px; }
-.au-block > h3 { margin: 0; font-size: .95rem; font-weight: 800; color: var(--st-text); }
-.au-row { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: flex-end; padding: 12px 0; border-top: 1px solid var(--st-line-soft, var(--st-line)); }
-.au-row .st-field { flex: 1 1 9rem; min-width: 0; margin: 0; }
-.au-row .au-narrow { flex: 0 1 8.5rem; }
-.au-days { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: .82rem; padding-top: 6px; }
-.au-days label { display: inline-flex; gap: 6px; align-items: center; }
-.au-inline { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; font-size: .88rem; }
-.au-inline input, .au-inline select { width: 6.5rem; }
-.au-result { margin: 0; padding: 12px 14px; border-radius: 10px; background: var(--st-hover); font-size: .84rem; line-height: 1.55; }
+/* The editor reads as the sentence it makes: flat sections, one line per condition or action, Settings' underline fields. */
+.au-editor { position: relative; padding: 52px 0 24px; }
+.au-editor::before { content: ''; position: absolute; top: 24px; left: 0; width: 40px; height: 3px; background: var(--dt-acc, var(--st-amber)); }
+.au-editor[hidden] { display: none; }
+.au-editor-head h2 { margin: 0 0 18px; font-size: 1.3rem; font-weight: 700; letter-spacing: -0.015em; color: var(--st-text); }
+.au-says { border-left: 3px solid var(--dt-acc, var(--st-amber)); margin: 22px 0 8px; padding: 2px 0 2px 16px; font-size: 1rem; line-height: 1.55; }
+.au-says[hidden] { display: none; }
+.au-says b { font-weight: 800; }
+.au-step { padding: 28px 0 8px; border-top: 1px solid var(--st-line-soft, var(--st-line)); margin-top: 26px; }
+.au-step > h3 { margin: 0 0 4px; font-size: 1.15rem; font-weight: 700; display: flex; gap: 12px; align-items: baseline; }
+.au-n { color: var(--dt-acc, var(--st-amber)); font-weight: 800; }
+.au-inline { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-end; font-size: .92rem; padding: 6px 0; }
+.au-inline.au-first { margin-top: 12px; }
+.au-inline .au-num, .au-line .au-num { width: 5.5rem; text-align: right; }
+.au-choice { display: inline-flex; gap: 18px; }
+.au-choice button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 2px 0; font: inherit; color: var(--st-muted); cursor: pointer; }
+.au-choice button[aria-pressed="true"] { color: var(--st-text); font-weight: 700; border-bottom-color: var(--dt-acc, var(--st-amber)); }
+.au-cond { border-top: 1px solid var(--st-line-soft, var(--st-line)); }
+.au-cond:first-of-type { border-top: 0; }
+.au-line { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 14px; padding: 8px 0; border-top: 1px solid var(--st-line-soft, var(--st-line)); }
+.au-cond .au-line { border-top: 0; }
+.au-line > * { margin-bottom: 0; }
+.au-lab, .au-idx { width: 42px; flex: none; color: var(--st-muted); font-weight: 800; font-size: .72rem; letter-spacing: .08em; padding-bottom: 12px; }
+.au-idx { color: var(--dt-acc, var(--st-amber)); font-size: .9rem; letter-spacing: 0; }
+.au-t, .au-hint, .au-now { padding-bottom: 11px; color: var(--st-muted); font-size: .85rem; white-space: nowrap; }
+.au-hint { white-space: normal; }
+.au-now { color: #2e8a56; }
+.au-sp { flex: 1 1 0; min-width: 0; }
+.au-line .au-type { min-width: 9.5rem; }
+.au-line .au-device { min-width: 15rem; }
+.au-line .au-reading { min-width: 10rem; flex: 1 1 10rem; max-width: 18rem; }
+.au-sub { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 12px; padding: 0 0 10px 56px; color: var(--st-muted); font-size: .86rem; }
+.au-days { display: inline-flex; gap: 14px; padding-bottom: 2px; }
+.au-day { background: none; border: 0; border-bottom: 2px solid transparent; padding: 2px 0; font: inherit; font-weight: 700; color: var(--st-muted); cursor: pointer; }
+.au-day[aria-pressed="true"] { color: var(--st-text); border-bottom-color: var(--dt-acc, var(--st-amber)); }
+.au-line .st-btn, .au-more { margin-bottom: 8px; }
+.au-add { margin-top: 6px; color: var(--st-amber-text, var(--st-amber)); }
+.au-result { margin: 22px 0 0; padding: 12px 14px; border-radius: 10px; background: var(--st-hover); font-size: .84rem; line-height: 1.55; }
 .au-result ul { margin: 6px 0 0; padding-left: 18px; }
-.au-form-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-@media (max-width: 600px) { .au-row .st-field, .au-row .au-narrow { flex: 1 1 100%; } }
+.au-result[hidden] { display: none; }
+.au-bar { position: sticky; bottom: 0; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; margin-top: 26px; padding: 16px 0 18px; background: linear-gradient(transparent, var(--dt-bg, var(--st-bg, var(--st-panel))) 30%); }
+.au-bar-msg { margin: 0 0 0 auto; }
+@media (max-width: 640px) {
+  .au-lab, .au-idx { width: auto; padding-bottom: 0; flex: 1 1 100%; }
+  .au-line > select, .au-line > input { flex: 1 1 40%; }
+  .au-line .au-device { min-width: 0; flex: 1 1 100%; }
+  .au-sub { padding-left: 0; }
+}
+
+/* Settings makes every field full width; in the editor's lines they sit side by side at their own widths. */
+html.dt body.st .au-line select, html.dt body.st .au-line input, html.dt body.st .au-inline input, html.dt body.st .au-inline select, html.dt body.st .au-sub input { width: auto; max-width: 100%; }
+html.dt body.st .au-line .au-num, html.dt body.st .au-inline .au-num, html.dt body.st .au-sub .au-num { width: 5.5rem; text-align: right; }
+html.dt body.st .au-line .au-reading { width: 12rem; }
+html.dt body.st .au-line .au-device { width: 17rem; }
+html.dt body.st .au-line .au-type { width: 10.5rem; }
+html.dt body.st .au-line input[type="time"] { width: 8.5rem; }

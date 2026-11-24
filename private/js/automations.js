@@ -186,6 +186,7 @@ async function testIt(a) {
 }
 
 // ── Editor ──
+// Laid out as the sentence it makes: When (one line per condition), Then, Otherwise (one line per action).
 const blankCond = () => ({ type: 'metric', metric: '', operator: 'gt', value: '' });
 const blankStep = () => ({ target: null, op: 'on', value: '' });
 function openEditor(a) {
@@ -202,85 +203,117 @@ function closeEditor() { $('au-editor').hidden = true; draft = null; editingId =
 const num = v => (v === '' || v === null || v === undefined ? '' : v);
 function field(label, input, cls) { const id = 'au-f' + Math.random().toString(36).slice(2, 8); input.id = id; return h('div', { class: 'st-field ' + (cls || '') }, h('label', { for: id }, label), input); }
 
+/** The sentence under the name, as far as the draft is filled in. */
+function updateSummary() {
+  const el = $('au-says');
+  if (!el || !draft) return;
+  const ready = draft.when.length && draft.when.every(c => c.type === 'time' || (c.metric && c.value !== '')) && draft.then.length && draft.then.every(x => x.target && (x.op !== 'set' || x.value !== ''));
+  el.hidden = !ready;
+  if (!ready) return;
+  const d = { ...draft, for_s: Number(draft.for_s) || 0, else: draft.else.filter(x => x.target) };
+  el.replaceChildren(...sentence(d));
+}
+const touch = fn => e => { fn(e); updateSummary(); };
+
+function lineButtons(list, i, what) {
+  const move = (dir, label) => h('button', { type: 'button', class: 'st-btn au-move', 'aria-label': label, onclick: () => { const j = i + dir; if (j < 0 || j >= list.length) return; [list[i], list[j]] = [list[j], list[i]]; drawEditor(true); } }, dir < 0 ? '↑' : '↓');
+  return [list.length > 1 && what === 'action' ? [move(-1, `Move action ${i + 1} up`), move(1, `Move action ${i + 1} down`)] : null,
+    h('button', { type: 'button', class: 'st-btn st-btn-danger-text au-remove', 'aria-label': `Remove ${what} ${i + 1}`, onclick: () => { list.splice(i, 1); drawEditor(true); } }, 'Remove')];
+}
+
 function condRow(c, i) {
-  const del = h('button', { type: 'button', class: 'st-btn', 'aria-label': `Remove condition ${i + 1}`, onclick: () => { draft.when.splice(i, 1); drawEditor(); } }, 'Remove');
-  const type = h('select', { onchange: e => { draft.when[i] = e.target.value === 'time' ? { type: 'time', from: '09:00', to: '16:00' } : blankCond(); drawEditor(); } },
+  const lab = h('span', { class: 'au-lab' }, i === 0 ? 'IF' : draft.join === 'any' ? 'OR' : 'AND');
+  const type = h('select', { class: 'au-type', 'aria-label': 'Type', onchange: e => { draft.when[i] = e.target.value === 'time' ? { type: 'time', from: '09:00', to: '16:00' } : blankCond(); drawEditor(true); } },
     h('option', { value: 'metric', selected: c.type === 'metric' }, 'A reading'), h('option', { value: 'time', selected: c.type === 'time' }, 'Time of day'));
   if (c.type === 'time') {
-    const days = h('div', { class: 'au-days' }, DAYS.map((d, n) => h('label', {}, h('input', { type: 'checkbox', checked: !c.days || c.days.includes(n), onchange: e => {
-      const set = new Set(c.days || [0, 1, 2, 3, 4, 5, 6]); e.target.checked ? set.add(n) : set.delete(n);
-      c.days = set.size === 7 || set.size === 0 ? undefined : [...set].sort();
-    } }), d)));
-    return h('div', { class: 'au-row' }, field('Type', type, 'au-narrow'),
-      field('From', h('input', { type: 'time', value: c.from, onchange: e => { c.from = e.target.value; } })), field('To', h('input', { type: 'time', value: c.to, onchange: e => { c.to = e.target.value; } })),
-      h('div', { class: 'st-field' }, h('label', {}, 'Days'), days), del);
+    const days = h('span', { class: 'au-days' }, DAYS.map((d, n) => {
+      const on = !c.days || c.days.includes(n);
+      return h('button', { type: 'button', class: 'au-day', 'aria-pressed': String(on), onclick: e => {
+        const set = new Set(c.days || [0, 1, 2, 3, 4, 5, 6]); on ? set.delete(n) : set.add(n);
+        c.days = set.size === 7 || set.size === 0 ? undefined : [...set].sort(); e.currentTarget.setAttribute('aria-pressed', String(!on)); drawEditor(true);
+      } }, d);
+    }));
+    return h('div', { class: 'au-cond' },
+      h('div', { class: 'au-line' }, lab, type, h('span', { class: 'au-t' }, 'between'),
+        h('input', { type: 'time', 'aria-label': 'From', value: c.from, onchange: touch(e => { c.from = e.target.value; }) }), h('span', { class: 'au-t' }, 'and'),
+        h('input', { type: 'time', 'aria-label': 'To', value: c.to, onchange: touch(e => { c.to = e.target.value; }) }),
+        h('span', { class: 'au-sp' }), lineButtons(draft.when, i, 'condition')),
+      h('div', { class: 'au-sub' }, 'Days', days));
   }
-  const listId = 'au-metrics';
-  return h('div', { class: 'au-row' }, field('Type', type, 'au-narrow'),
-    field('Reading', h('input', { list: listId, value: c.metric, onchange: e => { c.metric = e.target.value.trim(); drawEditor(true); } })),
-    field('Is', h('select', { onchange: e => { c.operator = e.target.value; } }, Object.entries(OPS).map(([k, v]) => h('option', { value: k, selected: c.operator === k }, v))), 'au-narrow'),
-    field('Value', h('input', { value: num(c.value), inputmode: 'decimal', onchange: e => { c.value = e.target.value; } }), 'au-narrow'),
-    field('Margin (optional)', h('input', { value: num(c.hysteresis), inputmode: 'decimal', title: 'Once true, it stays true until the reading is this far back past the value (stops flapping)', onchange: e => { c.hysteresis = e.target.value; } }), 'au-narrow'),
-    (() => { const m = catalog.metrics.find(x => x.name === c.metric); return h('p', { class: 'au-note', style: 'flex-basis:100%;margin:0' }, c.metric ? (m ? `Now: ${m.value}${m.unit ? ' ' + m.unit : ''} (updated ${m.ageS < 90 ? m.ageS + ' s' : Math.round(m.ageS / 60) + ' min'} ago)` : 'No reading with that name yet.') : ''); })(),
-    del);
+  const m = catalog.metrics.find(x => x.name === c.metric);
+  const more = h('button', { type: 'button', class: 'st-btn au-more', 'aria-expanded': String(!!c._more), onclick: () => { c._more = !c._more; drawEditor(true); } }, 'More');
+  const showMargin = c._more || (c.hysteresis !== undefined && c.hysteresis !== '');
+  return h('div', { class: 'au-cond' },
+    h('div', { class: 'au-line' }, lab, type,
+      h('input', { class: 'au-reading', list: 'au-metrics', 'aria-label': 'Reading', value: c.metric, onchange: e => { c.metric = e.target.value.trim(); drawEditor(true); updateSummary(); } }),
+      h('select', { 'aria-label': 'Is', onchange: touch(e => { c.operator = e.target.value; }) }, Object.entries(OPS).map(([k, v]) => h('option', { value: k, selected: c.operator === k }, v))),
+      h('input', { class: 'au-num', 'aria-label': 'Value', value: num(c.value), inputmode: 'decimal', onchange: touch(e => { c.value = e.target.value; }) }),
+      m && m.unit ? h('span', { class: 'au-t' }, m.unit) : null,
+      c.metric ? h('span', { class: 'au-now' }, m ? `now ${m.value}${m.unit ? ' ' + m.unit : ''}${m.ageS >= 90 ? ` (${Math.round(m.ageS / 60)} min ago)` : ''}` : 'no reading yet') : null,
+      h('span', { class: 'au-sp' }), more, lineButtons(draft.when, i, 'condition')),
+    showMargin ? h('div', { class: 'au-sub' }, 'Margin (optional)', h('input', { class: 'au-num', 'aria-label': 'Margin (optional)', value: num(c.hysteresis), inputmode: 'decimal', onchange: touch(e => { c.hysteresis = e.target.value; }) }),
+      h('span', { class: 'au-hint' }, 'Once true, it stays true until the reading is this far back past the value (stops flapping).')) : null);
 }
 
 function valueInput(entry, s) {
   if (s.op !== 'set' || !entry) return null;
-  if (entry.kind === 'number') return field(`Value${entry.unit ? ' (' + entry.unit + ')' : ''}`, h('input', { type: 'number', min: entry.min, max: entry.max, step: entry.step || 'any', value: num(s.value), onchange: e => { s.value = e.target.value; } }), 'au-narrow');
-  if (entry.kind === 'select') return field('Value', h('select', { onchange: e => { s.value = e.target.value; } }, h('option', { value: '' }, 'Choose…'), entry.options.map(o => h('option', { value: o.value, selected: String(s.value) === o.value }, o.label))));
-  return field('Value', h('input', { value: num(s.value), onchange: e => { s.value = e.target.value; } }), 'au-narrow');
+  if (entry.kind === 'number') return [
+    h('input', { class: 'au-num', type: 'number', 'aria-label': 'Value', min: entry.min, max: entry.max, step: entry.step || 'any', value: num(s.value), onchange: touch(e => { s.value = e.target.value; }) }),
+    entry.unit ? h('span', { class: 'au-t' }, entry.unit) : null,
+    h('span', { class: 'au-hint' }, `${entry.min}–${entry.max}, step ${entry.step}`)];
+  if (entry.kind === 'select') return h('select', { 'aria-label': 'Value', onchange: touch(e => { s.value = e.target.value; }) }, h('option', { value: '' }, 'Choose…'), entry.options.map(o => h('option', { value: o.value, selected: String(s.value) === o.value }, o.label)));
+  return h('input', { class: 'au-num', 'aria-label': 'Value', value: num(s.value), onchange: touch(e => { s.value = e.target.value; }) });
 }
 function stepRow(list, s, i) {
   const entry = s.target && targetOf(s.target);
   const groups = [...new Set(catalog.targets.map(t => t.group))];
-  const sel = h('select', { onchange: e => {
+  const sel = h('select', { class: 'au-device', 'aria-label': 'Device or setting', onchange: e => {
     const t = catalog.targets.find(x => x.key === e.target.value);
     s.target = t ? { source: t.source, device: t.device, entity: t.entity } : null;
-    s.op = t ? t.ops[0] : 'on'; s.value = ''; drawEditor(true);
+    s.op = t ? t.ops[0] : 'on'; s.value = ''; drawEditor(true); updateSummary();
   } }, h('option', { value: '' }, 'Choose a device or setting…'),
   groups.map(g => h('optgroup', { label: g }, catalog.targets.filter(t => t.group === g).map(t => h('option', { value: t.key, selected: !!entry && entry.key === t.key }, t.label)))));
-  const ops = entry ? entry.ops : [];
-  const opSel = h('select', { onchange: e => { s.op = e.target.value; drawEditor(true); } }, ops.map(o => h('option', { value: o, selected: s.op === o }, o === 'set' ? 'Set to' : o === 'on' ? 'Turn on' : 'Turn off')));
-  const move = (d, label) => h('button', { type: 'button', class: 'st-btn', 'aria-label': label, onclick: () => { const j = i + d; if (j < 0 || j >= list.length) return; [list[i], list[j]] = [list[j], list[i]]; drawEditor(true); } }, d < 0 ? '↑' : '↓');
-  return h('div', { class: 'au-row' }, field('Device or setting', sel), entry ? field('Action', opSel, 'au-narrow') : null, valueInput(entry, s),
-    list.length > 1 ? [move(-1, `Move action ${i + 1} up`), move(1, `Move action ${i + 1} down`)] : null,
-    h('button', { type: 'button', class: 'st-btn', 'aria-label': `Remove action ${i + 1}`, onclick: () => { list.splice(i, 1); drawEditor(true); } }, 'Remove'));
+  const opSel = entry ? h('select', { 'aria-label': 'Action', onchange: e => { s.op = e.target.value; drawEditor(true); updateSummary(); } },
+    entry.ops.map(o => h('option', { value: o, selected: s.op === o }, o === 'set' ? 'Set to' : o === 'on' ? 'Turn on' : 'Turn off'))) : null;
+  return h('div', { class: 'au-line' }, h('span', { class: 'au-idx' }, String(i + 1)), sel, opSel, valueInput(entry, s), h('span', { class: 'au-sp' }), lineButtons(list, i, 'action'));
 }
 
 function drawEditor(keepFocus) {
   const f = $('au-form');
-  const stepsBlock = (key, title, help) => h('div', { class: 'au-block' }, h('h3', {}, title), help ? h('p', { class: 'st-help' }, help) : null,
+  const stepBlock = (key, n, title, help, addLabel) => h('section', { class: 'au-step' },
+    h('h3', {}, h('span', { class: 'au-n' }, n), title), h('p', { class: 'st-help' }, help),
     draft[key].map((s, i) => stepRow(draft[key], s, i)),
-    h('div', {}, h('button', { type: 'button', class: 'st-btn', onclick: () => { draft[key].push(blankStep()); drawEditor(true); } }, key === 'then' ? 'Add another action' : 'Add an action')));
+    h('button', { type: 'button', class: 'st-btn au-add', onclick: () => { draft[key].push(blankStep()); drawEditor(true); } }, addLabel));
+  const choice = (value, label) => h('button', { type: 'button', 'aria-pressed': String(draft.join === value), onclick: () => { draft.join = value; drawEditor(true); updateSummary(); } }, label);
   f.replaceChildren(
     h('datalist', { id: 'au-metrics' }, catalog.metrics.map(m => h('option', { value: m.name }))),
-    h('div', { class: 'au-form-grid' },
-      field('Name', h('input', { value: draft.name, maxlength: 80, required: true, onchange: e => { draft.name = e.target.value; } })),
-      h('div', { class: 'au-block' }, h('h3', {}, 'When'),
-        h('div', { class: 'au-inline' }, 'These must be true:', h('select', { onchange: e => { draft.join = e.target.value; } },
-          h('option', { value: 'all', selected: draft.join === 'all' }, 'All of them'), h('option', { value: 'any', selected: draft.join === 'any' }, 'Any one of them'))),
-        draft.when.map((c, i) => condRow(c, i)),
-        h('div', {}, h('button', { type: 'button', class: 'st-btn', onclick: () => { draft.when.push(blankCond()); drawEditor(true); } }, 'Add a condition')),
-        h('div', { class: 'au-inline' }, 'and have held for at least', h('input', { type: 'number', min: 0, step: 1, value: draft.for_s, 'aria-label': 'Seconds the conditions must hold', onchange: e => { draft.for_s = e.target.value; } }), 'seconds.'),
-        h('div', { class: 'au-inline' }, 'Ignore readings older than', h('input', { type: 'number', min: 1, step: 1, value: Math.round(draft.max_age_s / 60), 'aria-label': 'Minutes after which a reading is ignored', onchange: e => { draft.max_age_s = Number(e.target.value) * 60; } }), 'minutes.'),
-        h('p', { class: 'st-help' }, 'If a reading is older than this, the automation does nothing.')),
-      stepsBlock('then', 'Then', 'Kept like this while the conditions hold. Several actions run in order, e.g. the settings that together switch grid charging on.'),
-      stepsBlock('else', 'Otherwise (optional)', 'Kept like this when the conditions do not hold. Leave empty to leave things as they are.'),
-      h('div', { class: 'au-result', id: 'au-editor-result', hidden: true }),
-      h('p', { class: 'st-help', id: 'au-editor-msg', role: 'status', 'aria-live': 'polite' }),
-      h('div', { class: 'au-form-actions' },
-        h('button', { type: 'button', class: 'st-btn', onclick: async () => {
-          const r = await api('POST', '/dry-run', clean()); if (!r.ok) return say('au-editor-msg', r.data.error, true); say('au-editor-msg', ''); showResult($('au-editor-result'), r.data);
-        } }, 'Test now'),
-        h('button', { type: 'submit', class: 'st-btn st-btn-primary' }, editingId ? 'Save changes' : 'Save (turned off)'),
-        h('button', { type: 'button', class: 'st-btn', onclick: closeEditor }, 'Cancel'))));
+    field('Name', h('input', { value: draft.name, maxlength: 80, required: true, onchange: touch(e => { draft.name = e.target.value; }) })),
+    h('p', { class: 'au-says', id: 'au-says', hidden: true }),
+    h('section', { class: 'au-step' },
+      h('h3', {}, h('span', { class: 'au-n' }, '1'), 'When'),
+      h('div', { class: 'au-inline' }, 'These must be true:', h('span', { class: 'au-choice', role: 'group', 'aria-label': 'How the conditions combine' }, choice('all', 'All of them'), choice('any', 'Any one of them'))),
+      draft.when.map((c, i) => condRow(c, i)),
+      h('button', { type: 'button', class: 'st-btn au-add', onclick: () => { draft.when.push(blankCond()); drawEditor(true); } }, 'Add a condition'),
+      h('div', { class: 'au-inline au-first' }, 'and have held for at least', h('input', { class: 'au-num', type: 'number', min: 0, step: 1, value: draft.for_s, 'aria-label': 'Seconds the conditions must hold', onchange: touch(e => { draft.for_s = e.target.value; }) }), 'seconds.'),
+      h('div', { class: 'au-inline' }, 'Ignore readings older than', h('input', { class: 'au-num', type: 'number', min: 1, step: 1, value: Math.round(draft.max_age_s / 60), 'aria-label': 'Minutes after which a reading is ignored', onchange: e => { draft.max_age_s = Number(e.target.value) * 60; } }), 'minutes.'),
+      h('p', { class: 'st-help' }, 'If a reading is older than this, the automation does nothing.')),
+    stepBlock('then', '2', 'Then', 'Kept like this while the conditions hold. Several actions run in order, e.g. the settings that together switch grid charging on.', 'Add another action'),
+    stepBlock('else', '3', 'Otherwise (optional)', 'Kept like this when the conditions do not hold. Leave empty to leave things as they are.', 'Add an action'),
+    h('div', { class: 'au-result', id: 'au-editor-result', hidden: true }),
+    h('div', { class: 'au-bar' },
+      h('button', { type: 'submit', class: 'st-btn st-btn-primary' }, editingId ? 'Save changes' : 'Save (turned off)'),
+      h('button', { type: 'button', class: 'st-btn', onclick: async () => {
+        const r = await api('POST', '/dry-run', clean()); if (!r.ok) return say('au-editor-msg', r.data.error, true); say('au-editor-msg', ''); showResult($('au-editor-result'), r.data);
+      } }, 'Test now'),
+      h('button', { type: 'button', class: 'st-btn', onclick: closeEditor }, 'Cancel'),
+      h('span', { class: 'st-help au-bar-msg', id: 'au-editor-msg', role: 'status', 'aria-live': 'polite' })));
+  updateSummary();
   if (!keepFocus) $('au-form').querySelector('input')?.focus();
 }
 function clean() {
   const c = JSON.parse(JSON.stringify(draft));
   c.for_s = c.for_s === '' ? 0 : Number(c.for_s);
-  c.when = c.when.map(x => (x.type === 'metric' ? { ...x, value: x.value === '' ? x.value : x.value, hysteresis: x.hysteresis === '' ? undefined : x.hysteresis } : x));
+  c.when = c.when.map(x => { const y = { ...x, hysteresis: x.hysteresis === '' ? undefined : x.hysteresis }; delete y._more; return y; });
   for (const k of ['then', 'else']) c[k] = c[k].filter(s => s.target).map(s => (s.op === 'set' ? s : { target: s.target, op: s.op }));
   return c;
 }
