@@ -30,7 +30,7 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
   database.setConfig('tuya_devices', JSON.stringify([{ name: 'Geyser', enabled: true, dps: { relay: 1 } }]));
   const app = express();
   app.use(express.json());
-  app.use(session({ secret: 'test-only', resave: false, saveUninitialized: false }));
+  app.use(session({ secret: 'test-only', resave: false, saveUninitialized: false, cookie: { secure: 'auto', httpOnly: true, sameSite: 'lax' } }));
   app.get('/signin', (q, s) => { q.session.authenticated = true; s.send('ok'); });
   app.get('/api/csrf-token', csrfToken);
   app.use('/api/controls', isAuthenticated, csrfProtection, require('../routes/controls'));
