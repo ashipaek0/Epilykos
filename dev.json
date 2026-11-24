@@ -1,16 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "45426325234.1",
-    "version": "1.3.9-dev+6c33583",
-    "commit": "6c33583373aba6fff6be5ea32732d0ef6dd76ae5",
-    "digest": "sha256:4a4e445b57cac8eee8b7dbf852cef86f8f06c99057739d5b6529e8b879654b4d",
+    "buildId": "45427101181.1",
+    "version": "1.3.9-dev+173dd66",
+    "commit": "173dd66b33188ae7c82d7947ba3e73de6a88517a",
+    "digest": "sha256:7d17da2727eee76ac1f1b8a08cae8f448740b316fd559f223ef349f32bb1425d",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-24T15:31:00Z",
+    "builtAt": "2026-11-24T15:35:05Z",
     "kind": "release",
-    "notes": []
+    "notes": [
+      "Test: set the session cookie flags in the automations API test (#432)"
+    ]
   },
   "history": [
+    {
+      "buildId": "45427101181.1",
+      "version": "1.3.9-dev+173dd66",
+      "commit": "173dd66b33188ae7c82d7947ba3e73de6a88517a",
+      "digest": "sha256:7d17da2727eee76ac1f1b8a08cae8f448740b316fd559f223ef349f32bb1425d",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-24T15:35:05Z",
+      "kind": "release",
+      "notes": [
+        "Test: set the session cookie flags in the automations API test (#432)"
+      ]
+    },
     {
       "buildId": "45426325234.1",
       "version": "1.3.9-dev+6c33583",
@@ -356,18 +370,6 @@
       "kind": "release",
       "notes": [
         "Layout editor: Browse presets, a gallery of ready-made dashboards that ship with the app (#396)"
-      ]
-    },
-    {
-      "buildId": "44532601986.1",
-      "version": "1.3.5-dev+a55c55e",
-      "commit": "a55c55e4d4dc7553d8ff3fd77c3877524259a1d9",
-      "digest": "sha256:eafde20f8980041d6fb6d6580b2a63fcca3b6f8625a1995863cfad0620513eca",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-19T13:21:34Z",
-      "kind": "release",
-      "notes": [
-        "Profile checker: npm run check:profile, a test over every shipped profile, issue and PR templates for new inverters (#395)"
       ]
     }
   ]
