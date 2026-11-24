@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "45390074966.1",
-    "version": "1.3.9-dev+6158c39",
-    "commit": "6158c390f644b405ffebdc5f809eb6dad93fc1a5",
-    "digest": "sha256:509790fa582cd964ddfcca6fb7f15537a6a8ef741a075b9f83381cd47cdc3f75",
+    "buildId": "45390836127.1",
+    "version": "1.3.9-dev+b64935e",
+    "commit": "b64935ebdbaa0a00a03d1176feb2150a205fac19",
+    "digest": "sha256:c70749b711abfcd6e316353c4634022763500cd703cacadb1cb90d724c1177fb",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-24T12:05:13Z",
+    "builtAt": "2026-11-24T12:10:00Z",
     "kind": "release",
     "notes": [
-      "Automations editor: one line per condition and action (#427)"
+      "Automations editor: put each line on three even columns (#428)"
     ]
   },
   "history": [
+    {
+      "buildId": "45390836127.1",
+      "version": "1.3.9-dev+b64935e",
+      "commit": "b64935ebdbaa0a00a03d1176feb2150a205fac19",
+      "digest": "sha256:c70749b711abfcd6e316353c4634022763500cd703cacadb1cb90d724c1177fb",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-24T12:10:00Z",
+      "kind": "release",
+      "notes": [
+        "Automations editor: put each line on three even columns (#428)"
+      ]
+    },
     {
       "buildId": "45390074966.1",
       "version": "1.3.9-dev+6158c39",
@@ -360,18 +372,6 @@
       "kind": "release",
       "notes": [
         "Settings → Appearance: Dashboard tabs can be switched off (the old behaviour) (#391)"
-      ]
-    },
-    {
-      "buildId": "44332735223.1",
-      "version": "1.3.4-dev+04e051a",
-      "commit": "04e051a260480f683acaa38f0ac5b2981a7d521e",
-      "digest": "sha256:bee0d5390b03307b8d7ed03c0c92312a58f33e5a4b6a8bd51a4265e265f8beca",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-18T15:11:54Z",
-      "kind": "release",
-      "notes": [
-        "Notifications: alerts open the page they are about, related alerts share a thread, and a bell lists them (signed-in admins) (#390)"
       ]
     }
   ]
