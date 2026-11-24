@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "45390836127.1",
-    "version": "1.3.9-dev+b64935e",
-    "commit": "b64935ebdbaa0a00a03d1176feb2150a205fac19",
-    "digest": "sha256:c70749b711abfcd6e316353c4634022763500cd703cacadb1cb90d724c1177fb",
+    "buildId": "45391691774.1",
+    "version": "1.3.9-dev+37913f6",
+    "commit": "37913f6f1ee4f06b267b5eef8ff1efd1da79803a",
+    "digest": "sha256:1263ba3d84e4116a24a76277580087ce501be5b7ba8056e8b81d607ad7367765",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-24T12:10:00Z",
+    "builtAt": "2026-11-24T12:15:28Z",
     "kind": "release",
     "notes": [
-      "Automations editor: put each line on three even columns (#428)"
+      "Automations editor: move a reading's current value under its line (#429)"
     ]
   },
   "history": [
+    {
+      "buildId": "45391691774.1",
+      "version": "1.3.9-dev+37913f6",
+      "commit": "37913f6f1ee4f06b267b5eef8ff1efd1da79803a",
+      "digest": "sha256:1263ba3d84e4116a24a76277580087ce501be5b7ba8056e8b81d607ad7367765",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-24T12:15:28Z",
+      "kind": "release",
+      "notes": [
+        "Automations editor: move a reading's current value under its line (#429)"
+      ]
+    },
     {
       "buildId": "45390836127.1",
       "version": "1.3.9-dev+b64935e",
@@ -360,18 +372,6 @@
       "kind": "release",
       "notes": [
         "Tabs off: an admin always has the bar, with Controls inside it; no header link (#392)"
-      ]
-    },
-    {
-      "buildId": "44464649116.1",
-      "version": "1.3.4-dev+154cffd",
-      "commit": "154cffd090ae00d4153c3e47eaca54a07c7e33a2",
-      "digest": "sha256:20eaa0d72bb00527beeb8a110ae862a429c09298b48ca0b5e7219a6687246501",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-19T05:22:07Z",
-      "kind": "release",
-      "notes": [
-        "Settings → Appearance: Dashboard tabs can be switched off (the old behaviour) (#391)"
       ]
     }
   ]
