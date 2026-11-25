@@ -794,34 +794,9 @@ app.post('/api/dashboard-config/import', isAuthenticated, upload.single('layout'
 app.use('/api/backup', isAuthenticated);
 app.use('/api/backup', require('./routes/backup')(backupDatabase));
 
-// Capture authorization only at pre-close, so logout/expiry during a long
-// preparation is respected. Copy before confirmation without an open response.
-function restoreSessionOptions(req) {
-  let captured;
-  return {
-    beforeActivate() { captured = sessionStore.captureForRestore(req.sessionID); },
-    afterActivate() { sessionStore.restoreCaptured(captured); }
-  };
-}
-function restoreFailure(res, err) {
-  // A file that is not a database (or is damaged) is found while the upload is
-  // checked, before anything is swapped: say so plainly instead of a 500.
-  if (!err.restoreRecoveryRequired && !err.status && /^SQLITE_(NOTADB|CORRUPT)/.test(String(err.code || ''))) {
-    err.status = 400;
-    err.restorePreflight = true;
-    err.message = 'That file is not an Epilykos backup, or it is damaged. Nothing was changed.';
-  }
-  // A refusal the person can act on (wrong file, passphrase needed) is not a server error.
-  if (err.status && err.status < 500) logger.warn('Restore refused: ' + err.message);
-  else logger.error('Restore error:', err);
-  if (err.restoreRecoveryRequired) {
-    // Files are retained for startup recovery. Do not serve a partly rebound
-    // process indefinitely; the normal container/service supervisor restarts it.
-    const timer = setTimeout(() => process.exit(1), 1000); timer.unref();
-    res.once('finish', () => setImmediate(() => process.exit(1)));
-  }
-  return res.status(err.status || 500).json({ error: err.restorePreflight || err.restoreRecoveryRequired || err.code === 'DB_RETIRED' ? err.message : 'Restore failed, original database restored.' });
-}
+// Restore and snapshot routes (and the session handover a restore needs): routes/restore.js
+const restoreRoutes = require('./routes/restore')({ restoreDatabase, restoreFromSnapshot, listSnapshots, restoreLifecycle, sessionStore, upload, uploadedFilePath });
+const { restoreSessionOptions, restoreFailure } = restoreRoutes;
 
 // Remote backup: an encrypted copy of the newest snapshot, sent to a folder (Google Drive and WebDAV later).
 const cloudBackup = require('./modules/cloudBackup').createCloudBackup({
@@ -839,41 +814,7 @@ app.use('/api/cloud-backup', isAuthenticated, require('./routes/cloudBackup')(cl
 cloudBackup.start();
 
 app.use('/api/restore-jobs', isAuthenticated, require('./routes/restoreUploads')(restoreUploads));
-app.use('/api/restore', isAuthenticated);
-app.post('/api/restore', upload.single('dbfile'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-  const uploaded = uploadedFilePath(req.file);
-  if (!uploaded) return res.status(400).json({ error: 'Invalid upload' });
-  try {
-    await restoreDatabase(uploaded, { lifecycle: restoreLifecycle, ...restoreSessionOptions(req) });
-    res.json({ success: true, message: 'Database restored successfully' });
-  } catch (err) {
-    restoreFailure(res, err);
-  } finally {
-    try { if (fs.existsSync(uploaded)) fs.unlinkSync(uploaded); } catch(e) {}
-  }
-});
-
-// ── Snapshot API ──────────────────────────────────────────────
-
-app.use('/api/snapshots', isAuthenticated);
-app.get('/api/snapshots/status', (req, res) => res.json(require('./modules/backup').snapshotStatus()));
-app.get('/api/snapshots', (req, res) => {
-  try {
-    res.json(listSnapshots());
-  } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.post('/api/snapshots/restore/:name', async (req, res) => {
-  try {
-    const result = await restoreFromSnapshot(decodeURIComponent(req.params.name), { lifecycle: restoreLifecycle, ...restoreSessionOptions(req) });
-    res.json(result);
-  } catch (err) {
-    restoreFailure(res, err);
-  }
-});
+app.use('/api', restoreRoutes.router);
 
 app.use('/api', require('./routes/settings'));
 
