@@ -131,6 +131,9 @@ async function loadSettings() {
         }
       }
     }
+    // Never set (an install from before this option): readings are shared, so show it on.
+    const shareAll = document.getElementById('public-share-all');
+    if (shareAll && data.public_share_all_metrics === undefined) shareAll.checked = true;
     syncGlassOptions();
     buildHaDeviceList(JSON.parse(data.ha_devices || '[]'));
     buildMqttDeviceList(JSON.parse(data.mqtt_devices || '[]'));

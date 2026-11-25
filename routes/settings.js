@@ -213,7 +213,7 @@ router.post('/settings/dashboard', isAuthenticated, (req, res) => {
   try {
     const allowed = [
       'dashboard_layouts', 'dashboard_active',
-      'desktop_dashboard', 'mobile_dashboard', 'public_dashboards', 'tabs_position', 'transparent_blocks', 'square_corners', 'glass_cards', 'glass_blur', 'glass_frost',
+      'desktop_dashboard', 'mobile_dashboard', 'public_dashboards', 'public_share_all_metrics', 'tabs_position', 'transparent_blocks', 'square_corners', 'glass_cards', 'glass_blur', 'glass_frost',
       'dashboard_bg_color_light', 'dashboard_bg_color_dark',
       'dashboard_bg_image', 'grid_status_entity'
     ];

@@ -16,6 +16,7 @@ const { getSavings } = require('../modules/savings');
 const metricSanity = require('../modules/metricSanity');
 const { getDashboardConfig } = require('../modules/dashboard-config');
 const { forVisitor } = require('../modules/dashboardVisibility');
+const publicMetrics = require('../modules/publicMetrics');
 const { localDateString } = require('../modules/localTime');
 const { readHistorySeries, readDailySnapshots, readPowerStats } = require('../modules/timeseriesReader');
 const { computeSavings } = require('../modules/solarValue');
@@ -285,7 +286,8 @@ router.get('/current', async (req, res) => {
     const current = buildCurrentData(getDb());
     res.set('Cache-Control', 'public, max-age=10');
     if (current) {
-      res.json({ ...current, metric_sanity: metricSanity.getStatus() });
+      const sanity = metricSanity.getStatus();
+      res.json({ ...current, metric_sanity: publicMetrics.seesAll(req) ? sanity : publicMetrics.filterMap(sanity, publicMetrics.allowedNames()) });
     } else {
       res.json({ error: 'No data yet' });
     }
@@ -613,7 +615,8 @@ router.get('/solar/intraday', async (req, res) => {
 router.get('/dashboard-state', async (req, res) => {
   try {
     const state = await sharedDashboardState();
-    res.json(state);
+    // A visitor gets the readings the public dashboards show, not every metric (modules/publicMetrics.js).
+    res.json(publicMetrics.seesAll(req) ? state : publicMetrics.filterState(state, publicMetrics.allowedNames()));
   } catch (err) {
     logger.error('Aggregated state error:', err);
     res.status(500).json({ error: 'Internal server error' });
