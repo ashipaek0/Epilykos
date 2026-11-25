@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "45569820009.1",
-    "version": "1.3.11-dev+6ed854d",
-    "commit": "6ed854d9e3590e2d2db0e405041e2c344dc3be14",
-    "digest": "sha256:3466abd8a35c0a136e5a3c2b05f406de746100acc1c18b127bba6cab0ac2dd0c",
+    "buildId": "45572477847.1",
+    "version": "1.3.11-dev+3b677c5",
+    "commit": "3b677c5935fd50041a4a2513e4315d762f24cb5a",
+    "digest": "sha256:57cda9957088395cc5252a59d5f62695974848dc8236e6a9eb702711d6bd07ce",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-25T07:39:31Z",
+    "builtAt": "2026-11-25T08:00:04Z",
     "kind": "release",
     "notes": [
-      "Refactor: move the restore and snapshot routes out of server.js into routes/restore.js (#443)"
+      "Thin anonymous metric history to the stored 5-minute resolution (#444)"
     ]
   },
   "history": [
+    {
+      "buildId": "45572477847.1",
+      "version": "1.3.11-dev+3b677c5",
+      "commit": "3b677c5935fd50041a4a2513e4315d762f24cb5a",
+      "digest": "sha256:57cda9957088395cc5252a59d5f62695974848dc8236e6a9eb702711d6bd07ce",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-25T08:00:04Z",
+      "kind": "release",
+      "notes": [
+        "Thin anonymous metric history to the stored 5-minute resolution (#444)"
+      ]
+    },
     {
       "buildId": "45569820009.1",
       "version": "1.3.11-dev+6ed854d",
@@ -355,18 +367,6 @@
       "kind": "release",
       "notes": [
         "Bump actions/setup-python from 6 to 7 in the actions group (#411)"
-      ]
-    },
-    {
-      "buildId": "44707256057.1",
-      "version": "1.3.7-dev+ebcd1ea",
-      "commit": "ebcd1eaa958167b8e0cdf3493ddd16ee5303754b",
-      "digest": "sha256:044de3962ebc0f8d77fc62c21f68348e62ca40f8ab0a2663307444b2f7dfa356",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-20T09:02:16Z",
-      "kind": "release",
-      "notes": [
-        "Add an offline admin-password reset for Windows installs (#409)"
       ]
     }
   ]
