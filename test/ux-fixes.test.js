@@ -123,7 +123,7 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
   });
 
   await check('public history capped at the 7 days cards use; Bluetooth timing and per-part start explained', () => {
-    const srv = read('server.js');
+    const srv = read('routes/metrics.js');
     assert.match(srv, /const maxHours = signedIn \? 8760 : 168;/);
     assert.match(srv, /Without signing in, history covers up to 7 days \(168 hours\)\./);
     for (const f of ['public/js/components/metricTrendLogic.js', 'public/js/components/configurableGaugeLogic.js', 'public/js/components/barCardLogic.js']) {

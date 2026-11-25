@@ -17,7 +17,6 @@ const compression = require('compression');
 const session = require('express-session');
 const crypto = require('crypto');
 const path = require('path');
-const multer = require('multer');
 const fs = require('fs');
 const morgan = require('morgan');
 const WebSocket = require('ws');
@@ -119,8 +118,6 @@ const { setupMqtt, mqttClients } = require('./modules/mqtt');
 const { loadProfiles } = require('./modules/modbus');
 const { loadRs232Profiles, shutdownRs232, restartRs232Streaming } = require('./modules/rs232');
 const { clearForecastCache } = require('./modules/solar');
-const { getCurrentMetrics, getMetricHistory } = require('./modules/metrics');
-const { getDashboardConfig, saveDashboardConfig } = require('./modules/dashboard-config');
 const { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotScheduler, listSnapshots, restoreFromSnapshot, checkpointWal } = require('./modules/backup');
 const { startExternalPolling, stopExternalPolling } = require('./modules/external');
 const { startBmsPolling, stopBmsPolling } = require('./modules/bms');
@@ -264,18 +261,9 @@ const walCheckpointInterval = setInterval(() => {
   try { checkpointWal(); } catch (e) { logger.warn('Periodic WAL checkpoint failed:', e.message); }
 }, 60 * 60 * 1000);
 
-// Multer for restore and import. Uploads (a whole backup can be one) land in a folder only this
-// process can read, not loose in the shared temp directory. os.tmpdir() honours TMPDIR
-// (EpilykosOS points it at a tmpfs).
-const uploadDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'epilykos-uploads-'));
-const upload = multer({
-  dest: uploadDir,
-  fileFilter: (req, file, cb) => {
-    if (file.originalname.endsWith('.db') || file.originalname.endsWith('.json')) cb(null, true);
-    else cb(new Error('Only .db or .json files allowed'));
-  },
-  limits: { fileSize: 50 * 1024 * 1024 }
-});
+// Uploads for restore and import: modules/uploads.js (a private folder, .db and .json only, 50 MB).
+const uploads = require('./modules/uploads').createUploads();
+const { upload, uploadedFilePath } = uploads;
 
 // Middleware
 // Security headers (incl. CSP) on every response — before any page/static route.
@@ -573,13 +561,6 @@ app.post('/api/wizard/reset', isAuthenticated, (req, res) => {
   res.json({ success: true });
 });
 
-/** Path of a multer upload, checked to sit in the upload directory; else null. */
-function uploadedFilePath(file) {
-  const root = path.resolve(uploadDir);
-  const resolved = path.resolve(String((file && file.path) || ''));
-  return resolved.startsWith(root + path.sep) ? resolved : null;
-}
-
 // ---------- Protected API (session + CSRF) – no rate limit ----------
 // Test/discovery routes that carry credentials (passwords, tokens, API keys)
 // are POST with a JSON body, so secrets never land in URLs, access logs or
@@ -593,57 +574,8 @@ app.use('/api', require('./routes/integrations'));
 // Modbus and RS232 profiles, entity catalogs, ports and test connections: routes/profiles.js
 app.use('/api', require('./routes/profiles'));
 
-app.post('/api/dashboard-config', isAuthenticated, (req, res) => {
-  try {
-    saveDashboardConfig(req.body);
-    res.json({ success: true });
-  } catch (err) {
-    logger.error('Error saving dashboard config:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.get('/api/dashboard-config/export', isAuthenticated, (req, res) => {
-  const config = getDashboardConfig();
-  res.setHeader('Content-Disposition', 'attachment; filename="dashboard-layout.json"');
-  res.setHeader('Content-Type', 'application/json');
-  res.json(config);
-});
-
-app.post('/api/dashboard-config/import', isAuthenticated, upload.single('layout'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-  const uploaded = uploadedFilePath(req.file);
-  if (!uploaded) return res.status(400).json({ error: 'Invalid upload' });
-  try {
-    const content = fs.readFileSync(uploaded, 'utf8');
-    const imported = JSON.parse(content);
-    if (!imported.dashboards || !Array.isArray(imported.dashboards)) {
-      throw new Error('Invalid dashboard config format');
-    }
-    // Merge: add imported dashboards to existing ones, avoiding ID collisions
-    if (req.query.merge !== 'false') {
-      const existing = getDashboardConfig();
-      const existingIds = new Set(existing.dashboards.map(d => d.id));
-      for (const db of imported.dashboards) {
-        if (existingIds.has(db.id)) {
-          db.id = 'db_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
-          if (db.name) db.name += ' (imported)';
-        }
-        existing.dashboards.push(db);
-        existingIds.add(db.id);
-      }
-      saveDashboardConfig(existing);
-    } else {
-      saveDashboardConfig(imported);
-    }
-    fs.unlinkSync(uploaded);
-    res.json({ success: true });
-  } catch (err) {
-    if (fs.existsSync(uploaded)) fs.unlinkSync(uploaded);
-    logger.error('Error importing dashboard config:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+// Saving, exporting and importing the dashboard layout: routes/dashboardConfig.js
+app.use('/api', require('./routes/dashboardConfig')({ upload, uploadedFilePath }));
 
 app.use('/api/backup', isAuthenticated);
 app.use('/api/backup', require('./routes/backup')(backupDatabase));
@@ -718,12 +650,6 @@ app.get('/editor', (req, res) => {
 });
 
 // ---------- Network config (public, read-only) ----------
-app.get('/api/network-config', (req, res) => {
-  const localURL = getConfig('network_local_url') || '';
-  const remoteURL = getConfig('network_remote_url') || '';
-  res.json({ localURL, remoteURL });
-});
-
 // ---------- Health probe (public, no auth) ----------
 app.get('/api/ping', (req, res) => res.json({ ok: true }));
 
@@ -740,51 +666,6 @@ app.get('/login', (req, res) => {
 // (The root route, /, is served ahead of the static files, near the top.)
 
 // ---------- Metrics endpoints ----------
-app.get('/api/metrics/current', async (req, res) => {
-  try {
-    const metrics = getCurrentMetrics();
-    res.json(publicMetrics.seesAll(req) ? metrics : publicMetrics.filterMap(metrics, publicMetrics.allowedNames()));
-  } catch (err) {
-    logger.error('Error in /api/metrics/current:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-const PUBLIC_HISTORY_MAX_POINTS = 2016;   // a week of 5-minute points
-app.get('/api/metrics/history', async (req, res) => {
-  const metric = req.query.metric;
-  if (!metric || typeof metric !== 'string' || metric.length > 128) return res.status(400).json({ error: 'metric is required (max 128 chars)' });
-  const hours = parseInt(req.query.hours) || 24;
-  // Public (dashboard) reads are capped at the 7 days the cards ask for: a
-  // year of raw readings is a heavy response anyone could request. Signed in,
-  // up to a year.
-  const signedIn = !!(req.session && req.session.authenticated);
-  // A visitor reads the readings the dashboards visible to them show; the rest need a sign-in (or sharing on).
-  if (!publicMetrics.seesAll(req) && !publicMetrics.allowedNames().has(metric)) return res.status(403).json({ error: 'This reading is not shown on a public dashboard. Sign in to see it.' });
-  const maxHours = signedIn ? 8760 : 168;
-  if (isNaN(hours) || hours < 1) return res.status(400).json({ error: `hours must be 1-${maxHours}` });
-  if (hours > maxHours) return res.status(signedIn ? 400 : 403).json({ error: signedIn ? 'hours must be 1-8760' : 'Without signing in, history covers up to 7 days (168 hours).' });
-  try {
-    // Without signing in, a long series is thinned to the stored 5-minute resolution (2,016 points for a week): the
-    // cards need no more, and an anonymous request should not cost a raw week of a fast metric.
-    res.json(getMetricHistory(metric, hours, signedIn ? {} : { maxPoints: PUBLIC_HISTORY_MAX_POINTS }));
-  } catch (err) {
-    logger.error('Error in /api/metrics/history:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.get('/api/metrics/names', async (req, res) => {
-  try {
-    const rows = getDb().prepare('SELECT metric FROM latest_metrics ORDER BY metric').all();
-    const names = rows.map(r => r.metric);
-    res.json(publicMetrics.seesAll(req) ? names : names.filter(n => publicMetrics.allowedNames().has(n)));
-  } catch (err) {
-    logger.error('Error in /api/metrics/names:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
 // ---------- Catch-all for SPA ----------
 app.use((req, res, next) => {
   if (ownsPrivatePath(req.path) || req.path.startsWith('/api') || req.path.startsWith('/settings') || req.path.startsWith('/login') || req.path.startsWith('/editor') || req.path.startsWith('/setup') || req.path.match(/\.(css|js|png|jpg|svg|ico)$/)) {
@@ -859,7 +740,7 @@ async function shutdown(signal, exitCode = 0) {
   await require('./modules/dbCheck').stop();
   getDb().close();
   require('./modules/dbCheck').markCleanStop();
-  try { fs.rmSync(uploadDir, { recursive: true, force: true }); } catch (_) { /* a later start makes a new one */ }
+  uploads.remove();
   logger.info('Shutdown complete');
   process.exit(exitCode);
 }
