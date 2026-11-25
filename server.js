@@ -972,6 +972,7 @@ app.get('/api/metrics/current', async (req, res) => {
   }
 });
 
+const PUBLIC_HISTORY_MAX_POINTS = 2016;   // a week of 5-minute points
 app.get('/api/metrics/history', async (req, res) => {
   const metric = req.query.metric;
   if (!metric || typeof metric !== 'string' || metric.length > 128) return res.status(400).json({ error: 'metric is required (max 128 chars)' });
@@ -986,7 +987,9 @@ app.get('/api/metrics/history', async (req, res) => {
   if (isNaN(hours) || hours < 1) return res.status(400).json({ error: `hours must be 1-${maxHours}` });
   if (hours > maxHours) return res.status(signedIn ? 400 : 403).json({ error: signedIn ? 'hours must be 1-8760' : 'Without signing in, history covers up to 7 days (168 hours).' });
   try {
-    res.json(getMetricHistory(metric, hours));
+    // Without signing in, a long series is thinned to the stored 5-minute resolution (2,016 points for a week): the
+    // cards need no more, and an anonymous request should not cost a raw week of a fast metric.
+    res.json(getMetricHistory(metric, hours, signedIn ? {} : { maxPoints: PUBLIC_HISTORY_MAX_POINTS }));
   } catch (err) {
     logger.error('Error in /api/metrics/history:', err);
     res.status(500).json({ error: 'Internal server error' });
