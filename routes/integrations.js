@@ -1,7 +1,7 @@
 /**
- * Home Assistant and MQTT routes (mounted at /api): Home Assistant device and entity lists and the actions an
- * entity offers, the switchable entities, and MQTT test connections, topic discovery and its cache.
- * Signed-in only. Credentials travel in POST bodies, never in URLs.
+ * Home Assistant, MQTT and REST routes (mounted at /api): Home Assistant device and entity lists and the actions an
+ * entity offers, the switchable entities, MQTT test connections, topic discovery and its cache, the REST (external)
+ * source test and field catalog, and the forecast test. Signed-in only. Credentials travel in POST bodies, never in URLs.
  *
  * @module routes/integrations
  */
@@ -11,6 +11,8 @@ const { getConfig, setConfig, getDb, resolveStoredSecret } = require('../modules
 const { isAuthenticated } = require('../modules/sessionAuth');
 const { stringFields } = require('../modules/requestFields');
 const { assertSafeFetchUrl, assertSafeBrokerUrl, trimSlashes } = require('../modules/utils');
+const { testForecast } = require('../modules/solar');
+const { safeFetch } = require('../modules/utils');
 const { fetchHAEntities, haApiUrl, getActionsForEntity, getEntityActions, getEntityModes } = require('../modules/ha');
 
 const router = express.Router();
@@ -417,7 +419,126 @@ function persistMqttDiscoveryCache(brokerUrlKey, entries) {
   }
 }
 
+const REST_FLATTEN_DEFAULT_CAPS = Object.freeze({ maxDepth: 6, maxLeaves: 500, maxArrayItems: 100 });
+
+function flattenJsonLeaves(doc, caps) {
+  // AC-11: deterministic DFS flatten of a parsed JSON document to scalar leaves
+  // {path, value, type, sample}. Caps: path ≤ maxDepth segments, ≤ maxLeaves
+  // leaves (first-N), arrays expanded to maxArrayItems items then capped.
+  // Objects iterate in insertion order, arrays by numeric index; only
+  // number/string/boolean leaves are emitted; empty containers and non-leaf
+  // values are skipped. Returns { leaves, truncated }.
+  const maxDepth = caps && caps.maxDepth !== undefined ? caps.maxDepth : REST_FLATTEN_DEFAULT_CAPS.maxDepth;
+  const maxLeaves = caps && caps.maxLeaves !== undefined ? caps.maxLeaves : REST_FLATTEN_DEFAULT_CAPS.maxLeaves;
+  const maxArrayItems = caps && caps.maxArrayItems !== undefined ? caps.maxArrayItems : REST_FLATTEN_DEFAULT_CAPS.maxArrayItems;
+  const leaves = [];
+  let truncated = false;
+
+  const kindOf = (v) => {
+    if (v === null) return 'null';
+    return Array.isArray(v) ? 'array' : typeof v;
+  };
+  const sampleOf = (value) => {
+    const s = typeof value === 'string' ? value : String(value);
+    return s.length > 200 ? s.slice(0, 200) : s;
+  };
+
+  function visit(value, segments) {
+    if (leaves.length >= maxLeaves) { truncated = true; return; }
+    const kind = kindOf(value);
+    if (kind === 'number' || kind === 'string' || kind === 'boolean') {
+      // Scalars are leaves when their path fits the segment budget (parents
+      // refuse to descend past maxDepth).
+      if (segments.length <= maxDepth) {
+        leaves.push({ path: segments.join('.'), value, type: kind, sample: sampleOf(value) });
+      }
+      return;
+    }
+    if (kind === 'null') return;
+    if (kind !== 'array' && kind !== 'object') return; // function/symbol/undefined etc. are not JSON — skipped silently
+    const isEmpty = kind === 'array' ? value.length === 0 : Object.keys(value).length === 0;
+    if (isEmpty) return; // skip empty containers
+    if (segments.length >= maxDepth) { truncated = true; return; } // non-empty content beyond depth budget
+    if (kind === 'array') {
+      if (value.length > maxArrayItems) truncated = true;
+      const n = Math.min(value.length, maxArrayItems);
+      for (let i = 0; i < n; i++) visit(value[i], segments.concat(String(i)));
+    } else if (kind === 'object') {
+      for (const key of Object.keys(value)) visit(value[key], segments.concat(key));
+    }
+  }
+
+  visit(doc, []);
+  return { leaves, truncated };
+}
+
+// Credentials in these routes travel in POST bodies, never in URLs.
+router.use('/test-forecast', isAuthenticated);
+router.post('/test-forecast', async (req, res) => {
+  const body = stringFields(req.body);
+  if (body.api_key) body.api_key = resolveStoredSecret(body.api_key, ['solcast_api_key']);
+  try {
+    res.json(await testForecast(body));
+  } catch (err) {
+    logger.error('Error in test-forecast:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.use('/test-external', isAuthenticated);
+router.post('/test-external', async (req, res) => {
+  const { url, jsonPath } = req.body;
+  if (!url) return res.status(400).json({ error: 'URL required' });
+  const { ok, error, url: safeUrl } = await assertSafeFetchUrl(url, { allowPrivate: true });
+  if (!ok) return res.status(400).json({ error });
+  try {
+    const response = await safeFetch(safeUrl, { signal: AbortSignal.timeout(5000) }, { allowPrivate: true }); // re-checks each redirect hop
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    let value = null;
+    if (jsonPath) {
+      const parts = jsonPath.split('.');
+      let cur = data;
+      for (const part of parts) cur = cur?.[part];
+      value = cur;
+    } else {
+      value = data;
+    }
+    const num = parseFloat(value);
+    res.json({ success: true, value: isNaN(num) ? value : num });
+  } catch (err) {
+    logger.error('Error testing external source:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// AC-11 (#108): REST field catalog — flatten a live JSON document into
+// deterministic scalar leaves {path,value,type,sample} with caps (depth ≤ 6
+// segments, ≤ 500 leaves, arrays ≤ 100 items). Guard is EXACTLY the
+// /api/test-external guard (assertSafeFetchUrl allowPrivate:true), 5s timeout,
+// JSON only, and the error contract mirrors the test route. modules/external.js
+// is untouched — this route never writes config or metrics.
+router.use('/external/fields', isAuthenticated);
+router.post('/external/fields', async (req, res) => {
+  const { url } = req.body || {};
+  if (!url) return res.status(400).json({ error: 'URL required' });
+  const { ok, error, url: safeUrl } = await assertSafeFetchUrl(url, { allowPrivate: true });
+  if (!ok) return res.status(400).json({ error });
+  try {
+    const response = await safeFetch(safeUrl, { signal: AbortSignal.timeout(5000) }, { allowPrivate: true }); // re-checks each redirect hop
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    const { leaves, truncated } = flattenJsonLeaves(data, REST_FLATTEN_DEFAULT_CAPS);
+    res.json({ leaves, truncated, leafCount: leaves.length });
+  } catch (err) {
+    logger.error('Error fetching external fields:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;
 module.exports.haStatesToCatalog = haStatesToCatalog;
 module.exports.mqttSampleOf = mqttSampleOf;
 module.exports.haErrorResponse = haErrorResponse;
+module.exports.flattenJsonLeaves = flattenJsonLeaves;
+module.exports.REST_FLATTEN_DEFAULT_CAPS = REST_FLATTEN_DEFAULT_CAPS;
