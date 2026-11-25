@@ -96,13 +96,13 @@ function autoPopulateRoleMetrics() {
 function getRoleMetrics() {
   const raw = getConfig('role_metrics');
   if (raw && raw !== '{}') {
-    try { return JSON.parse(raw); } catch (e) {} 
+    try { return JSON.parse(raw); } catch (e) { logger.warn(`[history] role_metrics is not valid JSON (${e.message}); rebuilding it from the dashboards`); }
   }
   // Auto-populate on first call
   autoPopulateRoleMetrics();
   const retry = getConfig('role_metrics');
   if (retry) {
-    try { return JSON.parse(retry); } catch (e) {}
+    try { return JSON.parse(retry); } catch (e) { logger.warn(`[history] could not read the rebuilt role_metrics: ${e.message}`); }
   }
   return {};
 }

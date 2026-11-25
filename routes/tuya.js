@@ -1,5 +1,5 @@
 /**
- * Tuya helper routes (mounted at /api): scan the network for devices, fetch them from the Tuya cloud or a
+ * Tuya helper routes (mounted at /api): scan the network for devices, fetch them with a
  * Smart Life QR login, and test a device. Each route needs a signed-in session.
  *
  * @module routes/tuya
@@ -7,7 +7,7 @@
 const express = require('express');
 const { logger } = require('../modules/logger');
 const { isAuthenticated } = require('../modules/sessionAuth');
-const { fetchCloudDevices, generateQrCode, pollQrLogin, fetchDevicesOAuth, discoverTuyaDevices, testTuyaDevice, verifyAllTuyaDevices } = require('../modules/tuya');
+const { generateQrCode, pollQrLogin, fetchDevicesOAuth, discoverTuyaDevices, testTuyaDevice, verifyAllTuyaDevices } = require('../modules/tuya');
 
 const router = express.Router();
 
@@ -36,18 +36,6 @@ router.get('/tuya-discover', isAuthenticated, async (req, res) => {
   }
 });
 
-router.post('/tuya-cloud-fetch', isAuthenticated, async (req, res) => {
-  try {
-    const { region, access_id, access_secret, user_id } = req.body;
-    const devices = await fetchCloudDevices(region, access_id, access_secret, user_id);
-    res.json({ success: true, devices });
-  } catch (err) {
-    logger.error('[Tuya] Cloud fetch error:', err);
-    res.status(500).json({ error: 'Cloud fetch failed' });
-  }
-});
-
-// Smart Life OAuth flow — QR code login (replaces the IoT API credential flow)
 router.post('/tuya-generate-qr', isAuthenticated, async (req, res) => {
   try {
     const { uid } = req.body;

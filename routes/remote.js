@@ -169,7 +169,7 @@ function init() {
     cloudflared.isInstalled().then(ok => {
       if (ok) { cloudflared.start(cf.token); logger.info('[cloudflared] Cloudflare Tunnel back on after restart'); }
       else logger.warn('[cloudflared] The Cloudflare Tunnel is on, but cloudflared is not included in this install');
-    });
+    }).catch(e => logger.warn(`[cloudflared] could not start: ${e.message}`));
   }
   if (getConfig('tailscale_enabled') !== 'true') return;
   tailscale.isInstalled().then(ok => {

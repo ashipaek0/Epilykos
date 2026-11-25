@@ -183,7 +183,9 @@ function start() {
     // Just restarted by an update: the helper may still be waiting for this app to report healthy.
     let tries = 0;
     reconcileTimer = setInterval(async () => {
-      const r = await dockerUpdate.reconcile();
+      // A failing reconcile is tried again next time, and still counts toward the limit: it must not run (and reject) for ever.
+      let r = null;
+      try { r = await dockerUpdate.reconcile(); } catch (_) { /* the next attempt, or the limit, ends it */ }
       if (!dockerUpdate.applying() || ++tries > 40) {
         clearInterval(reconcileTimer); reconcileTimer = null;
         if (r && r.ok && installed().buildId) check().catch(() => {});

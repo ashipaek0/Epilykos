@@ -63,6 +63,8 @@ function saveDevices(list) { writeJson(KEYS.devices, list); }
 
 /** Most push devices that can be registered. Anyone who opens the dashboard may register one. */
 const MAX_DEVICES = 50;
+/** Most of them a visitor (not signed in) can take: the rest stay free for the admin, so a stranger cannot fill the list. */
+const MAX_VISITOR_DEVICES = 40;
 
 /**
  * Remove a push device and drop it from everything that lists it: push
@@ -79,9 +81,10 @@ function removeDevice(id) {
  * Register a browser (or refresh it, matched by its push address). A new
  * device receives nothing by itself: only the rules and push channels that
  * list it, or a push channel set to "all devices" (which includes devices added
- * later, as its switch says), reach it. Returns { device, created }, or { full: true }.
+ * later, as its switch says), reach it. A visitor's registration is marked and limited to MAX_VISITOR_DEVICES.
+ * Returns { device, created }, or { full: true }.
  */
-function addDevice(sub, { label, userAgent }) {
+function addDevice(sub, { label, userAgent, visitor = false }) {
   const list = getDevices();
   const keys = { p256dh: sub.keys.p256dh, auth: sub.keys.auth };
   const existing = list.find(d => d.endpoint === sub.endpoint);
@@ -91,7 +94,8 @@ function addDevice(sub, { label, userAgent }) {
     return { device: existing, created: false };
   }
   if (list.length >= MAX_DEVICES) return { full: true };
-  const device = { id: newId('dev'), label, endpoint: sub.endpoint, keys, user_agent: userAgent, created_at: Math.floor(Date.now() / 1000) };
+  if (visitor && list.filter(d => d.visitor === true).length >= MAX_VISITOR_DEVICES) return { full: true };
+  const device = { id: newId('dev'), label, endpoint: sub.endpoint, keys, user_agent: userAgent, created_at: Math.floor(Date.now() / 1000), ...(visitor ? { visitor: true } : {}) };
   list.push(device);
   saveDevices(list);
   return { device, created: true };
@@ -263,7 +267,7 @@ module.exports = {
   getSettings, saveSettings,
   getChannels, saveChannels,
   getRules, saveRules,
-  getDevices, saveDevices, removeDevice, addDevice, MAX_DEVICES,
+  getDevices, saveDevices, removeDevice, addDevice, MAX_DEVICES, MAX_VISITOR_DEVICES,
   getState, saveState,
   publicChannel, mergeChannelConfig, publicDevice,
   getVapid,

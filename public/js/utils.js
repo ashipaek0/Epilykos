@@ -1,7 +1,9 @@
+/**
+ * Text made safe to put in HTML, in an element or in a quoted attribute: & < > " and ' are escaped (a quote would end
+ * the attribute value, and the rest of the value would then be markup).
+ */
 export function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+  return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 export function getDayName(dateStr) {

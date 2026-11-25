@@ -8,12 +8,17 @@ const { PollResult } = require('./pollResult');
  * Spawn a Python bridge script and return its parsed JSON output.
  * @param {string} script - absolute path to the Python script
  * @param {string[]} args  - positional arguments for the script
+ * @param {{secrets?: Object<string,string>}} [options] secrets: values the script must not get on its command line
+ *   (any local user can read a command line, not an environment): they go in the environment under these names, and the
+ *   script reads them where an argument is the placeholder ENV_ARG
  * @returns {Promise<any>}  - parsed JSON (object or array)
  */
-function runBridge(script, args) {
+const ENV_ARG = '@env';
+function runBridge(script, args, { secrets } = {}) {
   return new Promise((resolve, reject) => {
     logger.debug(`runBridge: python3 -u ${script} ${args[0]} (${args[1] ? args[1].substring(0,20) : ''}...)`);
-    execFile(require('./pythonCommand').pythonCommand(), ['-u', script, ...args], { timeout: 60000, maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
+    const env = secrets ? { ...process.env, ...secrets } : null;
+    execFile(require('./pythonCommand').pythonCommand(), ['-u', script, ...args], { timeout: 60000, maxBuffer: 1024 * 1024, ...(env ? { env } : {}) }, (err, stdout, stderr) => {
       if (err) {
         // Many bridge scripts print structured JSON errors on stdout/stderr.
         const raw = (stdout || stderr || '').trim();
@@ -25,7 +30,7 @@ function runBridge(script, args) {
         // Keep the last line of the Python output (the exception) instead.
         const lastLine = (text) => String(text || '').trim().split('\n').filter(Boolean).pop() || '';
         let detail = lastLine(stderr) || lastLine(stdout) || (err.killed ? 'timed out' : `exit code ${err.code}`);
-        for (const a of args.slice(1)) if (a && String(a).length >= 8) detail = detail.split(String(a)).join('…');
+        for (const a of [...args.slice(1), ...Object.values(secrets || {})]) if (a && String(a).length >= 8) detail = detail.split(String(a)).join('…');
         return reject(new Error(`Tuya bridge ${args[0]} failed: ${detail}`));
       }
       // Log stderr for diagnostics (Python debug goes to stderr)
@@ -109,8 +114,8 @@ async function pollTuyaDevices() {
     const version = device.version || '3.3';
     try {
       const dps = await runBridge(bridgePath, [
-        'poll', device.dev_id, device.address, device.local_key, version
-      ]);
+        'poll', device.dev_id, device.address, ENV_ARG, version
+      ], { secrets: { TUYA_LOCAL_KEY: device.local_key } });
 
       if (!dps || typeof dps !== 'object') {
         throw new Error(`Tuya poll (${device.name || device.dev_id}): no DPs returned`);
@@ -159,21 +164,6 @@ async function pollTuyaDevices() {
 }
 
 /**
- * Fetch devices + local keys + DP name mappings from the Tuya IoT Cloud.
- *
- * @param {string} region       - Tuya datacenter region (eu / us / cn / in)
- * @param {string} accessId     - Tuya API access ID
- * @param {string} accessSecret - Tuya API access secret
- * @param {string} deviceId     - any device ID on the account (used to select the API project)
- * @returns {Promise<Array<{name, id, key, ip, version, mapping}>>}
- */
-async function fetchCloudDevices(region, accessId, accessSecret, userId) {
-  const scriptPath = path.join(__dirname, 'tuya_cloud.py');
-  const args = ['fetch-devices', region, accessId, accessSecret, userId];
-  return runBridge(scriptPath, args);
-}
-
-/**
  * Generate a QR code token for Smart Life app scan login.
  * @param {string} uid - Smart Life User ID (e.g. "BaTuCAf")
  * @returns {Promise<{qr_token: string, qr_url: string}>}
@@ -201,7 +191,7 @@ async function pollQrLogin(qrToken, uid) {
  */
 async function fetchDevicesOAuth(tokenInfo) {
   const scriptPath = path.join(__dirname, 'tuya_cloud.py');
-  return runBridge(scriptPath, ['fetch-devices-oauth', JSON.stringify(tokenInfo)]);
+  return runBridge(scriptPath, ['fetch-devices-oauth', ENV_ARG], { secrets: { TUYA_TOKEN_INFO: JSON.stringify(tokenInfo) } });
 }
 
 /**
@@ -334,7 +324,7 @@ async function testTuyaDevice({ dev_id, address, local_key, version } = {}) {
   const ver = version || '3.3';
 
   try {
-    return await runBridge(bridgePath, ['test', dev_id, address, local_key, ver]);
+    return await runBridge(bridgePath, ['test', dev_id, address, ENV_ARG, ver], { secrets: { TUYA_LOCAL_KEY: local_key } });
   } catch (e) {
     return { success: false, error: e.message };
   }
@@ -379,8 +369,8 @@ async function executeTuyaAction(deviceId, dpId, value) {
   try {
     // Spec arg order: set <dev_id> <address> <local_key> <version> <dp_number> <value>
     const result = await runBridge(path.join(__dirname, 'tuya_bridge.py'), [
-      'set', device.dev_id, device.address, device.local_key, version, String(dpId), String(actionValue)
-    ]);
+      'set', device.dev_id, device.address, ENV_ARG, version, String(dpId), String(actionValue)
+    ], { secrets: { TUYA_LOCAL_KEY: device.local_key } });
     return result;
   } catch (e) {
     logger.error(`Tuya action error for ${deviceId}/DP${dpId}: ${e.message}`);
@@ -388,4 +378,4 @@ async function executeTuyaAction(deviceId, dpId, value) {
   }
 }
 
-module.exports = { pollTuyaDevices, fetchCloudDevices, generateQrCode, pollQrLogin, fetchDevicesOAuth, discoverTuyaDevices, testTuyaDevice, verifyAllTuyaDevices, executeTuyaAction };
+module.exports = { pollTuyaDevices, generateQrCode, pollQrLogin, fetchDevicesOAuth, discoverTuyaDevices, testTuyaDevice, verifyAllTuyaDevices, executeTuyaAction };

@@ -33,7 +33,7 @@ const session = require('express-session');
     });
     r.on('error', reject); if (data) r.write(data); r.end();
   });
-  const routes = [['GET', '/api/tuya-discover'], ['POST', '/api/tuya-cloud-fetch'], ['POST', '/api/tuya-generate-qr'], ['POST', '/api/tuya-poll-login'],
+  const routes = [['GET', '/api/tuya-discover'], ['POST', '/api/tuya-generate-qr'], ['POST', '/api/tuya-poll-login'],
     ['POST', '/api/tuya-fetch-oauth'], ['POST', '/api/test-tuya'], ['POST', '/api/tuya-verify-all']];
   try {
     for (const [m, p] of routes) assert.strictEqual((await call(m, p, m === 'GET' ? undefined : {})).status, 401, `${m} ${p} signed out`);
