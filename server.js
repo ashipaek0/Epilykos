@@ -28,7 +28,7 @@ const { PollingManager } = require('./services/PollingManager');
 const { createLivePush } = require('./modules/livePush');
 const { planBroadcast, MAX_MESSAGE_BYTES } = require('./modules/broadcastPlan');
 const { timeZoneName } = require('./modules/localTime');
-const { initializeDatabase, getConfig, setConfig, getDb, startMetricAutoFlush, stopMetricAutoFlush, flushSync, flushMetrics, onMetricsFlushed, migrateSecretsToEncrypted, resolveStoredSecret } = require('./modules/database');
+const { initializeDatabase, getConfig, setConfig, getDb, startMetricAutoFlush, stopMetricAutoFlush, flushSync, flushMetrics, onMetricsFlushed, migrateSecretsToEncrypted } = require('./modules/database');
 
 /**
  * Compute delta between current and previous state objects.
@@ -118,11 +118,10 @@ const { isAuthenticated, csrfProtection } = require('./modules/sessionAuth');
 const { setupMqtt, mqttClients } = require('./modules/mqtt');
 const { loadProfiles } = require('./modules/modbus');
 const { loadRs232Profiles, shutdownRs232, restartRs232Streaming } = require('./modules/rs232');
-const { testForecast, clearForecastCache } = require('./modules/solar');
+const { clearForecastCache } = require('./modules/solar');
 const { getCurrentMetrics, getMetricHistory } = require('./modules/metrics');
 const { getDashboardConfig, saveDashboardConfig } = require('./modules/dashboard-config');
 const { backupDatabase, restoreDatabase, startSnapshotScheduler, stopSnapshotScheduler, listSnapshots, restoreFromSnapshot, checkpointWal } = require('./modules/backup');
-const { assertSafeFetchUrl, safeFetch } = require('./modules/utils');
 const { startExternalPolling, stopExternalPolling } = require('./modules/external');
 const { startBmsPolling, stopBmsPolling } = require('./modules/bms');
 const { startBmsWiredPolling, stopBmsWiredPolling } = require('./modules/bmsWired');
@@ -137,69 +136,6 @@ const entityCatalog = require('./modules/entityCatalog');
 const { bundledProfilePath } = require('./modules/bundledProfiles');
 const { updateInverterMetrics } = require('./modules/inverterSetup');
 const publicMetrics = require('./modules/publicMetrics');
-const { stringFields } = require('./modules/requestFields');
-
-// ================= #108 catalog projections (pure) =================
-// No fs / network / DB / logger. Every function below takes parsed data and
-// returns catalog items, so the route handlers stay thin wrappers. Named to
-// mirror the entityCatalog.js API (catEntity + per-source projections) so a
-// later slice can move them into that module verbatim.
-// ===================================================================
-
-const REST_FLATTEN_DEFAULT_CAPS = Object.freeze({ maxDepth: 6, maxLeaves: 500, maxArrayItems: 100 });
-
-function flattenJsonLeaves(doc, caps) {
-  // AC-11: deterministic DFS flatten of a parsed JSON document to scalar leaves
-  // {path, value, type, sample}. Caps: path ≤ maxDepth segments, ≤ maxLeaves
-  // leaves (first-N), arrays expanded to maxArrayItems items then capped.
-  // Objects iterate in insertion order, arrays by numeric index; only
-  // number/string/boolean leaves are emitted; empty containers and non-leaf
-  // values are skipped. Returns { leaves, truncated }.
-  const maxDepth = caps && caps.maxDepth !== undefined ? caps.maxDepth : REST_FLATTEN_DEFAULT_CAPS.maxDepth;
-  const maxLeaves = caps && caps.maxLeaves !== undefined ? caps.maxLeaves : REST_FLATTEN_DEFAULT_CAPS.maxLeaves;
-  const maxArrayItems = caps && caps.maxArrayItems !== undefined ? caps.maxArrayItems : REST_FLATTEN_DEFAULT_CAPS.maxArrayItems;
-  const leaves = [];
-  let truncated = false;
-
-  const kindOf = (v) => {
-    if (v === null) return 'null';
-    return Array.isArray(v) ? 'array' : typeof v;
-  };
-  const sampleOf = (value) => {
-    const s = typeof value === 'string' ? value : String(value);
-    return s.length > 200 ? s.slice(0, 200) : s;
-  };
-
-  function visit(value, segments) {
-    if (leaves.length >= maxLeaves) { truncated = true; return; }
-    const kind = kindOf(value);
-    if (kind === 'number' || kind === 'string' || kind === 'boolean') {
-      // Scalars are leaves when their path fits the segment budget (parents
-      // refuse to descend past maxDepth).
-      if (segments.length <= maxDepth) {
-        leaves.push({ path: segments.join('.'), value, type: kind, sample: sampleOf(value) });
-      }
-      return;
-    }
-    if (kind === 'null') return;
-    if (kind !== 'array' && kind !== 'object') return; // function/symbol/undefined etc. are not JSON — skipped silently
-    const isEmpty = kind === 'array' ? value.length === 0 : Object.keys(value).length === 0;
-    if (isEmpty) return; // skip empty containers
-    if (segments.length >= maxDepth) { truncated = true; return; } // non-empty content beyond depth budget
-    if (kind === 'array') {
-      if (value.length > maxArrayItems) truncated = true;
-      const n = Math.min(value.length, maxArrayItems);
-      for (let i = 0; i < n; i++) visit(value[i], segments.concat(String(i)));
-    } else if (kind === 'object') {
-      for (const key of Object.keys(value)) visit(value[key], segments.concat(key));
-    }
-  }
-
-  visit(doc, []);
-  return { leaves, truncated };
-}
-
-// ================= /#108 catalog projections =================
 
 const app = express();
 app.disable('x-powered-by');   // do not announce the framework
@@ -648,18 +584,6 @@ function uploadedFilePath(file) {
 // Test/discovery routes that carry credentials (passwords, tokens, API keys)
 // are POST with a JSON body, so secrets never land in URLs, access logs or
 // browser history.
-app.use('/api/test-forecast', isAuthenticated);
-app.post('/api/test-forecast', async (req, res) => {
-  const body = stringFields(req.body);
-  if (body.api_key) body.api_key = resolveStoredSecret(body.api_key, ['solcast_api_key']);
-  try {
-    res.json(await testForecast(body));
-  } catch (err) {
-    logger.error('Error in test-forecast:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
 // Role metrics, Virtual Battery and combined metrics: routes/metricConfig.js
 app.use('/api', require('./routes/metricConfig'));
 
@@ -765,57 +689,7 @@ app.use('/api', require('./routes/bms'));
 // Tuya helper routes (discover, cloud fetch, QR login, test): routes/tuya.js
 app.use('/api', require('./routes/tuya'));
 
-app.use('/api/test-external', isAuthenticated);
-app.post('/api/test-external', async (req, res) => {
-  const { url, jsonPath } = req.body;
-  if (!url) return res.status(400).json({ error: 'URL required' });
-  const { ok, error, url: safeUrl } = await assertSafeFetchUrl(url, { allowPrivate: true });
-  if (!ok) return res.status(400).json({ error });
-  try {
-    const response = await safeFetch(safeUrl, { signal: AbortSignal.timeout(5000) }, { allowPrivate: true }); // re-checks each redirect hop
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
-    let value = null;
-    if (jsonPath) {
-      const parts = jsonPath.split('.');
-      let cur = data;
-      for (const part of parts) cur = cur?.[part];
-      value = cur;
-    } else {
-      value = data;
-    }
-    const num = parseFloat(value);
-    res.json({ success: true, value: isNaN(num) ? value : num });
-  } catch (err) {
-    logger.error('Error testing external source:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// AC-11 (#108): REST field catalog — flatten a live JSON document into
-// deterministic scalar leaves {path,value,type,sample} with caps (depth ≤ 6
-// segments, ≤ 500 leaves, arrays ≤ 100 items). Guard is EXACTLY the
-// /api/test-external guard (assertSafeFetchUrl allowPrivate:true), 5s timeout,
-// JSON only, and the error contract mirrors the test route. modules/external.js
-// is untouched — this route never writes config or metrics.
-app.use('/api/external/fields', isAuthenticated);
-app.post('/api/external/fields', async (req, res) => {
-  const { url } = req.body || {};
-  if (!url) return res.status(400).json({ error: 'URL required' });
-  const { ok, error, url: safeUrl } = await assertSafeFetchUrl(url, { allowPrivate: true });
-  if (!ok) return res.status(400).json({ error });
-  try {
-    const response = await safeFetch(safeUrl, { signal: AbortSignal.timeout(5000) }, { allowPrivate: true }); // re-checks each redirect hop
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
-    const { leaves, truncated } = flattenJsonLeaves(data, REST_FLATTEN_DEFAULT_CAPS);
-    res.json({ leaves, truncated, leafCount: leaves.length });
-  } catch (err) {
-    logger.error('Error fetching external fields:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
+// Forecast test and REST (external source) test and field catalog: routes/integrations.js (mounted above)
 // ========== DONGLE ENDPOINTS (protected) ==========
 app.use('/api', require('./routes/dongle'));
 
