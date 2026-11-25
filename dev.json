@@ -1,25 +1,44 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "45582848972.1",
-    "version": "1.3.11-dev+7c6bbd7",
-    "commit": "7c6bbd7ec229fb202d5074e7959369f8bdbd7d8a",
-    "digest": "sha256:8463fd596a9b3294740923a76351742926d62b190bf8a3d086dc010927c084a5",
+    "buildId": "45599082430.1",
+    "version": "1.3.12-dev+09c58bf",
+    "commit": "09c58bf8b466f2579393a1338bf08e62a782bd2c",
+    "digest": "sha256:e1125ac30190dd5a4f55ffb7e5a671b6f92c1b1db67f3b972210f9c2caac65a0",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-25T09:10:39Z",
+    "builtAt": "2026-11-25T10:52:40Z",
     "kind": "release",
     "notes": [
-      "Refactor: move the dashboard layout routes, the metric read routes and the upload handling out of server.js (#450)"
+      "Editor: presets move to the Dashboards menu (#452)"
     ],
     "attestation": {
-      "id": "72062598",
-      "url": "https://github.com/ashipaek0/Epilykos/attestations/72062598",
+      "id": "72107002",
+      "url": "https://github.com/ashipaek0/Epilykos/attestations/72107002",
       "repository": "ashipaek0/Epilykos",
       "signer_workflow": "ashipaek0/Epilykos/.github/workflows/docker-build-dev.yml@refs/heads/dev",
-      "subject": "irunmole/epilykos@sha256:8463fd596a9b3294740923a76351742926d62b190bf8a3d086dc010927c084a5"
+      "subject": "irunmole/epilykos@sha256:e1125ac30190dd5a4f55ffb7e5a671b6f92c1b1db67f3b972210f9c2caac65a0"
     }
   },
   "history": [
+    {
+      "buildId": "45599082430.1",
+      "version": "1.3.12-dev+09c58bf",
+      "commit": "09c58bf8b466f2579393a1338bf08e62a782bd2c",
+      "digest": "sha256:e1125ac30190dd5a4f55ffb7e5a671b6f92c1b1db67f3b972210f9c2caac65a0",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-25T10:52:40Z",
+      "kind": "release",
+      "notes": [
+        "Editor: presets move to the Dashboards menu (#452)"
+      ],
+      "attestation": {
+        "id": "72107002",
+        "url": "https://github.com/ashipaek0/Epilykos/attestations/72107002",
+        "repository": "ashipaek0/Epilykos",
+        "signer_workflow": "ashipaek0/Epilykos/.github/workflows/docker-build-dev.yml@refs/heads/dev",
+        "subject": "irunmole/epilykos@sha256:e1125ac30190dd5a4f55ffb7e5a671b6f92c1b1db67f3b972210f9c2caac65a0"
+      }
+    },
     {
       "buildId": "45582848972.1",
       "version": "1.3.11-dev+7c6bbd7",
@@ -390,18 +409,6 @@
       "kind": "release",
       "notes": [
         "Automations page: call the run log \"Logs\" (#421)"
-      ]
-    },
-    {
-      "buildId": "45364068395.1",
-      "version": "1.3.9-dev+e03e8e2",
-      "commit": "e03e8e2486a0622d90be004acf7e9f77e062d862",
-      "digest": "sha256:acbb7328282b459ad370a8704bbb72df5548a165832e4cd31a928550ba5505c7",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-24T09:19:51Z",
-      "kind": "release",
-      "notes": [
-        "Add the Automations page and API, with per-automation take over (#420)"
       ]
     }
   ]
