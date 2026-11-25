@@ -1,18 +1,30 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "45504312037.1",
-    "version": "1.3.11-dev+a02c4bd",
-    "commit": "a02c4bdc70d622cfadfc223bea6cc6bccaa675f7",
-    "digest": "sha256:b4eb04773ee5d86917c239c1a2ee497d0e2d7343b8875f7b729b9b83e2de6c5b",
+    "buildId": "45568474514.1",
+    "version": "1.3.11-dev+049a17b",
+    "commit": "049a17b788b32ab2c3235ba4f78442db00095c6f",
+    "digest": "sha256:ff5328a013be2ac22d8fff136b06db156ae0d49631409c51f638fb9e4f660182",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-24T22:48:34Z",
+    "builtAt": "2026-11-25T07:29:16Z",
     "kind": "release",
     "notes": [
-      "Refactor: move the settings routes out of server.js into routes/settings.js (#441)"
+      "Refactor: move the Home Assistant and MQTT routes out of server.js into routes/integrations.js (#442)"
     ]
   },
   "history": [
+    {
+      "buildId": "45568474514.1",
+      "version": "1.3.11-dev+049a17b",
+      "commit": "049a17b788b32ab2c3235ba4f78442db00095c6f",
+      "digest": "sha256:ff5328a013be2ac22d8fff136b06db156ae0d49631409c51f638fb9e4f660182",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-25T07:29:16Z",
+      "kind": "release",
+      "notes": [
+        "Refactor: move the Home Assistant and MQTT routes out of server.js into routes/integrations.js (#442)"
+      ]
+    },
     {
       "buildId": "45504312037.1",
       "version": "1.3.11-dev+a02c4bd",
@@ -355,18 +367,6 @@
       "kind": "release",
       "notes": [
         "Settings: close the Home Assistant section (Notifications, Security, Logs, Backup, Health, Updates, System and Help opened blank) (#407)"
-      ]
-    },
-    {
-      "buildId": "44539031601.1",
-      "version": "1.3.5-dev+6c4c790",
-      "commit": "6c4c79020f06560af0953d21ec8bac5012f64934",
-      "digest": "sha256:7b6a29a57979e4b67a50b6e80ec1349fa60fbaee042785c928f4b671d9e68b31",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-19T14:00:15Z",
-      "kind": "release",
-      "notes": [
-        "Presets and Home Assistant: file names come only from the listing, and a linear underscore trim (CodeQL) (#406)"
       ]
     }
   ]
