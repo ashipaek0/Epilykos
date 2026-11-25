@@ -1,25 +1,44 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "45577475120.1",
-    "version": "1.3.11-dev+b3e1ee9",
-    "commit": "b3e1ee97ab3fe6a8f0a2098e2fa01dcc81478dac",
-    "digest": "sha256:cbe85fcd6211ececaa4ab3a183b9aa8b782da73fb667667916563e5a274a427a",
+    "buildId": "45579593979.1",
+    "version": "1.3.11-dev+f958408",
+    "commit": "f9584086a0bc4e8947afca114d8dc472cad07835",
+    "digest": "sha256:e80bf0f3c60903938052dfdf27a8fe637af450fb659468f18833819b6ce12133",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-25T08:34:51Z",
+    "builtAt": "2026-11-25T08:49:16Z",
     "kind": "release",
     "notes": [
-      "Attest the pushed images and put the attestation reference in the digest record and the update feed (#447)"
+      "Refactor: move the REST source and forecast test routes out of server.js into routes/integrations.js (#448)"
     ],
     "attestation": {
-      "id": "72049941",
-      "url": "https://github.com/ashipaek0/Epilykos/attestations/72049941",
+      "id": "72054256",
+      "url": "https://github.com/ashipaek0/Epilykos/attestations/72054256",
       "repository": "ashipaek0/Epilykos",
       "signer_workflow": "ashipaek0/Epilykos/.github/workflows/docker-build-dev.yml@refs/heads/dev",
-      "subject": "irunmole/epilykos@sha256:cbe85fcd6211ececaa4ab3a183b9aa8b782da73fb667667916563e5a274a427a"
+      "subject": "irunmole/epilykos@sha256:e80bf0f3c60903938052dfdf27a8fe637af450fb659468f18833819b6ce12133"
     }
   },
   "history": [
+    {
+      "buildId": "45579593979.1",
+      "version": "1.3.11-dev+f958408",
+      "commit": "f9584086a0bc4e8947afca114d8dc472cad07835",
+      "digest": "sha256:e80bf0f3c60903938052dfdf27a8fe637af450fb659468f18833819b6ce12133",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-25T08:49:16Z",
+      "kind": "release",
+      "notes": [
+        "Refactor: move the REST source and forecast test routes out of server.js into routes/integrations.js (#448)"
+      ],
+      "attestation": {
+        "id": "72054256",
+        "url": "https://github.com/ashipaek0/Epilykos/attestations/72054256",
+        "repository": "ashipaek0/Epilykos",
+        "signer_workflow": "ashipaek0/Epilykos/.github/workflows/docker-build-dev.yml@refs/heads/dev",
+        "subject": "irunmole/epilykos@sha256:e80bf0f3c60903938052dfdf27a8fe637af450fb659468f18833819b6ce12133"
+      }
+    },
     {
       "buildId": "45577475120.1",
       "version": "1.3.11-dev+b3e1ee9",
@@ -369,18 +388,6 @@
       "kind": "release",
       "notes": [
         "Move the /api/action dispatch into modules/deviceActions.js (#418)"
-      ]
-    },
-    {
-      "buildId": "45182496398.1",
-      "version": "1.3.8-dev+a6bfae8",
-      "commit": "a6bfae858754d6ccae20948c9cfb1b8ce998eb07",
-      "digest": "sha256:7d8a05381c71f715396660d20466f488e60cda81c5f6b5fa2b11005d938da92f",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-23T13:18:10Z",
-      "kind": "release",
-      "notes": [
-        "Showcase data: honour the caller's clock so the window doesn't slide away (#417)"
       ]
     }
   ]
