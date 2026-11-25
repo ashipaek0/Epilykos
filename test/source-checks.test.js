@@ -32,12 +32,12 @@ check('an inverter mapped to the names its unmapped twin writes: refused, with t
 });
 check('both settings saves and the dongle poller run the check', () => {
   const fs = require('fs'), path = require('path'), read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
-  assert.strictEqual((read('server.js').match(/dongleNameClash\(devices\);\s*if \(clash\) return res\.status\(400\)/g) || []).length, 2, '/api/settings and /api/settings/data-sources');
+  assert.strictEqual((read('routes/settings.js').match(/dongleNameClash\(devices\);\s*if \(clash\) return res\.status\(400\)/g) || []).length, 2, '/api/settings and /api/settings/data-sources');
   assert.match(read('modules/dongle.js'), /dongleNameClash\(config\);\s*if \(clash\) logger\.warn/);
 });
 check('the settings save refuses a clash, and Settings suggests a prefix', () => {
   const fs = require('fs'), path = require('path');
-  assert.match(fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8'), /dongleNameClash\(devices\);\s*if \(clash\) return res\.status\(400\)/);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'routes', 'settings.js'), 'utf8'), /dongleNameClash\(devices\);\s*if \(clash\) return res\.status\(400\)/);
   assert.match(fs.readFileSync(path.join(__dirname, '..', 'public/settings.js'), 'utf8'), /prefixEl\.value = `inv\$\{n\}_`/);
 });
 const { bankOutputClash } = require('../modules/sourceChecks');
@@ -55,7 +55,7 @@ check('battery banks: plain calculation names, one-click usual metrics, saves re
   assert.match(js, /\['soc', 'weighted_soc', \['battery_level', 'soc'\]\]/);
   assert.match(js, /class="st-btn add-bank-starter"/);
   for (const cls of ['bank-fn-output', 'bank-fn-type', 'bank-fn-source', 'bank-fn-weightby', 'remove-bank-fn']) assert.ok(js.includes(cls), cls + ' kept for the save collectors');
-  assert.match(read('server.js'), /bankOutputClash\(banks\);\s*if \(clash\) return res\.status\(400\)/);
+  assert.match(read('routes/settings.js'), /bankOutputClash\(banks\);\s*if \(clash\) return res\.status\(400\)/);
 });
 console.log(`source-checks: ${passed} checks passed`);
 checks.done();

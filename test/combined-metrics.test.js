@@ -155,7 +155,7 @@ check('editor: On/Off calculation, fields, words and the grid voltage suggestion
   for (const id of ['cm-when', 'cm-onat', 'cm-offat']) assert.match(js, new RegExp(`id="${id}"`));
   assert.match(js, /function shown\(d, v\)/); assert.match(js, /'On' : 'Off'/);
   assert.match(js, /name: 'grid_status', unit: '', fn: 'threshold'/);
-  const srv = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const srv = fs.readFileSync(path.join(__dirname, '..', 'routes/metricConfig.js'), 'utf8');
   assert.match(srv, /'note', 'when', 'on_at', 'off_at'/, 'the limits are saved');
   assert.ok(cm.FNS.includes('threshold'));
 });
@@ -216,10 +216,10 @@ check('a poll cycle keeps the day\u2019s peak, writes it to the history, and a r
 
 check('Settings: own-save card, server validation, loops refused, units listed', () => {
   const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
-  const html = read('public/settings.html'), shell = read('public/js/settings-shell.js'), server = read('server.js');
+  const html = read('public/settings.html'), shell = read('public/js/settings-shell.js'), server = read('routes/metricConfig.js');
   assert.match(html, /id="combined-card" data-own-save/); assert.match(html, /js\/combined-metrics\.js/);
   assert.match(shell, /!c\.closest\('\[data-own-save\]'\)/);
-  assert.match(server, /app\.post\('\/api\/combined-metrics'/); assert.match(server, /cm\.validateDefinition\(def, clean\)/);
+  assert.match(server, /router\.post\('\/combined-metrics'/); assert.match(server, /cm\.validateDefinition\(def, clean\)/);
   assert.match(server, /use each other in a loop/); assert.match(server, /combined: true/);
   assert.match(read('public/js/combined-metrics.js'), /now - t < 3600/, 'suggestions use metrics with recent readings only');
 });

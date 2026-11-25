@@ -186,7 +186,8 @@ def main():
         if len(sys.argv) != 3:
             print(json.dumps({"error": "Usage: fetch-devices-oauth <token_info_json>"}))
             sys.exit(1)
-        fetch_devices_oauth(sys.argv[2])
+        # The token is a secret: it arrives in the environment (the command line is readable by every local user).
+        fetch_devices_oauth(os.environ.pop("TUYA_TOKEN_INFO", "") if sys.argv[2] == "@env" else sys.argv[2])
 
     else:
         print(json.dumps({"error": f"Unknown action: {action}"}))

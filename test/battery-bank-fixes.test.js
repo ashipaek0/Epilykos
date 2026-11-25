@@ -76,7 +76,7 @@ const bankMetrics = () => { database.flushMetrics(); return Object.fromEntries(d
 
   // The settings page.
   const js = fs.readFileSync(path.join(REPO, 'public/settings.js'), 'utf8');
-  const srv = fs.readFileSync(path.join(REPO, 'server.js'), 'utf8');
+  const srv = fs.readFileSync(path.join(REPO, 'routes/bms.js'), 'utf8');
   assert.match(srv, /getAvailableSourceKeys\(name, \{ fallback: req\.query\.fallback === '1' \}\)/);
   const pop = js.slice(js.indexOf('function populateBankDevices('), js.indexOf('function renderBankFunctionRow('));
   assert.match(pop, /#bms-devices-container \.device-card/); assert.match(pop, /#bms-wired-devices-container \.device-card/, 'wired batteries can be in a bank');

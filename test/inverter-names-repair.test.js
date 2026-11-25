@@ -82,5 +82,5 @@ console.log('ok - a second run, an inverter without a prefix and an unknown prof
 
 const server = fs.readFileSync(path.join(REPO, 'server.js'), 'utf8');
 assert.match(server, /updateInverterMetrics\(\);\n\s*startExternalPolling\(\); startBmsPolling\(\); startBmsWiredPolling\(\); startDonglePolling\(\);/, 'before the inverters are polled');
-assert.match(server, /if \(has\('dongle_config'\)\) \{ updateInverterMetrics\(\); restartDonglePolling\(\); \}/);
+assert.match(fs.readFileSync(path.join(REPO, 'routes/settings.js'), 'utf8'), /if \(has\('dongle_config'\)\) \{ updateInverterMetrics\(\); restartDonglePolling\(\); \}/);
 checks.done();

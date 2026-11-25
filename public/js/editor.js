@@ -32,7 +32,7 @@ BLOCK_BUILDERS.set('quick-actions', function(block) {
   return buildQuickActions(Object.assign({}, block, { config: cfg }));
 });
 
-function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
 // The grid the dashboard on the canvas is placed on (public/js/layoutGrid.js): columns across the width and
 // the height of a row in px. The standard grid is 12 x 50; a dashboard can be finer. The Controls page

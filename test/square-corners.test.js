@@ -14,7 +14,7 @@ assert.match(read('public/js/appearance.js'), /classList\.toggle\('square-corner
 assert.match(read('public/js/appearance.js'), /squareCorners: cfg\.square_corners === 'true'/, 'the default comes from the setting');
 assert.match(read('public/js/dashboard.js'), /applyAppearance\(effectiveAppearance\(defaultLook, active && active\.appearance\), \{ anchored:/);
 assert.match(read('routes/metrics.js'), /'transparent_blocks', 'square_corners'/, 'the dashboard is told the setting');
-assert.match(read('server.js'), /'transparent_blocks', 'square_corners'/);
+assert.match(read('routes/settings.js'), /'transparent_blocks', 'square_corners'/);
 const css = read('public/style.css');
 assert.match(css, /body\.square-corners #dashboard-container \{ --radius: 0px; \}/, 'scoped to the dashboard, not the header');
 console.log('ok - square corners setting');

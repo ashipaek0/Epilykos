@@ -35,6 +35,6 @@ assert.equal(cfg.dashboards.length, 4, 'the stored config is untouched');
 const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 assert.match(read('routes/metrics.js'), /forVisitor\(config/);
 assert.match(read('routes/metrics.js'), /req\.session && req\.session\.authenticated\) return res\.json\(config\)/, 'a signed-in session gets all dashboards');
-for (const f of ['server.js', 'modules/database.js']) assert.match(read(f), /'public_dashboards'/);
+for (const f of ['routes/settings.js', 'modules/database.js']) assert.match(read(f), /'public_dashboards'/);
 assert.match(read('public/settings.html'), /name="public_dashboards"/);
 checks.done();

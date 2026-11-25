@@ -35,7 +35,7 @@ const path = require('path');
 const Database = require('better-sqlite3');
 
 const ROOT = path.join(__dirname, '..');
-const SERVER_SRC = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+const SERVER_SRC = fs.readFileSync(path.join(ROOT, 'routes', 'integrations.js'), 'utf8');
 
 let passes = 0;
 let failures = 0;

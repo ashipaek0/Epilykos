@@ -16,6 +16,12 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    # The build signs what it pushes (see the attestation step below): the job asks GitHub for a short-lived signing
+    # identity (id-token) and stores the attestation with the repository (attestations).
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     outputs:
       version: ${{ steps.version.outputs.version }}
     strategy:
@@ -86,6 +92,27 @@ jobs:
             EPILYKOS_COMMIT=${{ github.sha }}
             EPILYKOS_BUILT_AT=${{ steps.meta.outputs.built_at }}
 
+      # Sign what was just pushed: a build-provenance attestation, made with a short-lived key that GitHub issues to
+      # this workflow run (there is no key to store or rotate), recorded in a public transparency log and pushed beside
+      # the image. Anyone can check that this digest was built from this repository by this workflow:
+      #   gh attestation verify oci://docker.io/irunmole/epilykos@<digest> --repo ashipaek0/Epilykos
+      # A failure here does not stop the build: the digest then has no attestation in its record, and the check that
+      # needs one (EpilykosOS, before it installs) refuses it. See docs/build-attestations.md.
+      - name: Image name for the attestation
+        id: subject
+        env:
+          IMAGE_TAG: ${{ matrix.service.tag }}
+        run: echo "name=index.docker.io/${IMAGE_TAG%:*}" >> "$GITHUB_OUTPUT"
+
+      - name: Attest the image (build provenance)
+        id: attest
+        continue-on-error: true
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ${{ steps.subject.outputs.name }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
       # Record the immutable digest of what was just pushed. EpilykosOS
       # application manifests pin images by digest (C-UPDATE-002), never by tag.
       - name: Record image digest
@@ -96,12 +123,21 @@ jobs:
           BUILD_ID: ${{ steps.meta.outputs.build_id }}
           BUILT_AT: ${{ steps.meta.outputs.built_at }}
           VERSION: ${{ steps.version.outputs.version }}
+          ATTESTATION_ID: ${{ steps.attest.outputs.attestation-id }}
+          ATTESTATION_URL: ${{ steps.attest.outputs.attestation-url }}
+          WORKFLOW_REF: ${{ github.workflow_ref }}
         run: |
           repo="${IMAGE_TAG%:*}"
           echo "### ${SERVICE}" >> "$GITHUB_STEP_SUMMARY"
           echo "\`${repo}@${IMAGE_DIGEST}\` (tag \`${IMAGE_TAG}\`, commit \`${GITHUB_SHA}\`)" >> "$GITHUB_STEP_SUMMARY"
-          printf '{"service":"%s","image":"%s","digest":"%s","tag":"%s","commit":"%s","ref":"%s","version":"%s","build_id":"%s","built_at":"%s"}\n' \
-            "$SERVICE" "$repo" "$IMAGE_DIGEST" "$IMAGE_TAG" "$GITHUB_SHA" "$GITHUB_REF_NAME" "$VERSION" "$BUILD_ID" "$BUILT_AT" > "digest-${SERVICE}.json"
+          # The attestation reference (what to verify, and who must have signed it) is in the record only when the
+          # attestation was made; the update feed and EpilykosOS read it from here.
+          jq -n --arg service "$SERVICE" --arg image "$repo" --arg digest "$IMAGE_DIGEST" --arg tag "$IMAGE_TAG" \
+            --arg commit "$GITHUB_SHA" --arg ref "$GITHUB_REF_NAME" --arg version "$VERSION" --arg build_id "$BUILD_ID" \
+            --arg built_at "$BUILT_AT" --arg att_id "$ATTESTATION_ID" --arg att_url "$ATTESTATION_URL" \
+            --arg repo_slug "$GITHUB_REPOSITORY" --arg workflow "$WORKFLOW_REF" \
+            '{service: $service, image: $image, digest: $digest, tag: $tag, commit: $commit, ref: $ref, version: $version, build_id: $build_id, built_at: $built_at}
+             + (if $att_id == "" then {} else {attestation: {id: $att_id, url: $att_url, repository: $repo_slug, signer_workflow: $workflow, subject: ($image + "@" + $digest)}} end)' > "digest-${SERVICE}.json"
 
       - name: Upload digest record
         uses: actions/upload-artifact@v7

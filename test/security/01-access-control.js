@@ -26,7 +26,6 @@ const PROTECTED = [
   ['POST', '/api/restore', { x: 1 }],
   ['POST', '/api/snapshots/restore/x', null],
   ['POST', '/api/dongle/test', { transport: 'tcp', host: '127.0.0.1' }],
-  ['POST', '/api/tuya-cloud-fetch', { region: 'eu' }],
   ['POST', '/api/wizard/reset', {}],
   ['POST', '/api/updates/apply', { password: 'nope' }],
   ['POST', '/api/updates/check', {}],

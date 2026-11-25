@@ -8,7 +8,7 @@ const checks = require('./_checks');
 const assert = require('node:assert/strict');
 const fs = require('fs'), path = require('path');
 const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
-const html = read('public/settings.html'), js = read('public/settings.js'), server = read('server.js');
+const html = read('public/settings.html'), js = read('public/settings.js'), server = read('routes/metricManagement.js');
 
 assert.match(html, /<th scope="col" class="st-select-col"><span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="metrics-select-all"/, 'select-all is a toggle switch');
 assert.match(html, /<div class="st-card" data-own-save>\s*<div class="st-card-head">\s*<h2>All metrics/, 'ticking a metric is not an unsaved change');
@@ -17,8 +17,8 @@ assert.match(js, /const pick = metric\.combined \? ''/, 'a combined metric has n
 assert.match(js, /tr:not\(\[hidden\]\) \.metric-select/, 'select all reaches only the rows the filter shows');
 assert.match(js, /fetch\('\/api\/metrics\/delete', \{ method: 'POST'/, 'one request deletes them all');
 assert.match(js, /confirmLabel: 'Delete'/, 'it asks once, naming how many');
-assert.match(server, /app\.post\('\/api\/metrics\/delete', isAuthenticated/, 'signed-in only');
-assert.match(server, /require\('\.\/modules\/metricDeletion'\)\.deleteMetrics\(names, \{ deferHistory: true \}\)/);
+assert.match(server, /router\.post\('\/metrics\/delete', isAuthenticated/, 'signed-in only');
+assert.match(server, /require\('\.\.\/modules\/metricDeletion'\)\.deleteMetrics\(names, \{ deferHistory: true \}\)/);
 assert.match(server, /const result = deleteMetrics\(\[name\], \{ deferHistory: true \}\);/, 'deleting one uses the same rules');
 console.log('ok - select several metrics and delete them together');
 checks.done();

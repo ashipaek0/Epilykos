@@ -8,7 +8,7 @@ const fs = require('fs'), path = require('path');
 const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 
 // The three settings are saved, and the dashboard is told them.
-for (const f of ['routes/metrics.js', 'server.js', 'modules/database.js']) {
+for (const f of ['routes/metrics.js', 'routes/settings.js', 'modules/database.js']) {
   assert.match(read(f), /'square_corners', 'glass_cards', 'glass_blur', 'glass_frost'/, `${f} knows the glass settings`);
 }
 

@@ -52,7 +52,8 @@ async function login(password = process.env.TEST_PASSWORD || 'testpass1234') {
     const r = await request('POST', '/api/login', { body: { password }, cookie, headers: { ...xhr, 'X-CSRF-Token': token } });
     if (r.status === 200) {
       const authenticatedCookie = r.setCookie.length ? r.setCookie.map(c => c.split(';')[0]).join('; ') : cookie;
-      csrfTokens.set(authenticatedCookie, token);
+      // Signing in starts a new session with a new CSRF token, sent back in X-CSRF-Token: the old one no longer works.
+      csrfTokens.set(authenticatedCookie, r.headers['x-csrf-token'] || token);
       return authenticatedCookie;
     }
     if (r.status === 429 && attempt === 0) {

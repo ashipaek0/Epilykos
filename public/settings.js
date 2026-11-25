@@ -131,6 +131,9 @@ async function loadSettings() {
         }
       }
     }
+    // Never set (an install from before this option): readings are shared, so show it on.
+    const shareAll = document.getElementById('public-share-all');
+    if (shareAll && data.public_share_all_metrics === undefined) shareAll.checked = true;
     syncGlassOptions();
     buildHaDeviceList(JSON.parse(data.ha_devices || '[]'));
     buildMqttDeviceList(JSON.parse(data.mqtt_devices || '[]'));
@@ -5962,10 +5965,10 @@ function collectDeviceArray(containerId, extractFn) {
   cards.forEach(card => arr.push(extractFn(card)));
   return JSON.stringify(arr);
 }
+// Text made safe to put in HTML, in an element or in a quoted attribute: & < > " and ' are escaped (a quote would end
+// the attribute value, and the rest of the value would then be markup).
 function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+  return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 // Initialize. js/settings-shell.js waits on this before taking its baseline.

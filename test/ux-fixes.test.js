@@ -73,7 +73,7 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     assert.match(js, /if \(ms && ms\.value\) ms\.dispatchEvent\(new Event\('input'\)\)/, 'filter survives a reload of the list');
     assert.match(read('public/settings-shell.css'), /\.st #metrics-table \.delete-metric-btn \{ opacity: 1; \}/);
     assert.doesNotMatch(read('public/js/combined-metrics.js'), /alert\(/);
-    const srv = read('server.js');
+    const srv = read('routes/metricManagement.js');
     assert.match(read('modules/metricDeletion.js'), /is a combined metric\. Delete it under Combined metrics/);
     assert.match(srv, /res\.json\(\{ success: true, roles_cleared: result\.rolesCleared, used_by: result\.usedBy\[name\] \|\| \[\] \}\)/);
     assert.match(read('modules/metricsManager.js'), /SELECT metric, value, value_text, timestamp, unit FROM latest_metrics/, 'units the sources reported are listed');
@@ -123,7 +123,7 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
   });
 
   await check('public history capped at the 7 days cards use; Bluetooth timing and per-part start explained', () => {
-    const srv = read('server.js');
+    const srv = read('routes/metrics.js');
     assert.match(srv, /const maxHours = signedIn \? 8760 : 168;/);
     assert.match(srv, /Without signing in, history covers up to 7 days \(168 hours\)\./);
     for (const f of ['public/js/components/metricTrendLogic.js', 'public/js/components/configurableGaugeLogic.js', 'public/js/components/barCardLogic.js']) {

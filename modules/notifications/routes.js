@@ -181,7 +181,7 @@ function deviceLabel(ua) {
  * (the public prompt, which anyone can call).
  */
 const PUSH_SERVICES = /(^|\.)(googleapis\.com|push\.services\.mozilla\.com|push\.apple\.com|notify\.windows\.com)$/i;
-async function registerDevice(req, { onlyKnownServices = false } = {}) {
+async function registerDevice(req, { onlyKnownServices = false, visitor = false } = {}) {
   const sub = (req.body || {}).subscription || {};
   const endpoint = str(sub.endpoint, 1000);
   const keys = sub.keys || {};
@@ -196,7 +196,7 @@ async function registerDevice(req, { onlyKnownServices = false } = {}) {
   if (!safe.ok) fail('Push service address not allowed');
   const userAgent = str(req.get('user-agent'), 300);
   const label = str((req.body || {}).label, 60) || deviceLabel(userAgent);
-  const out = store.addDevice({ endpoint, keys: { p256dh: str(keys.p256dh, 200), auth: str(keys.auth, 200) } }, { label, userAgent });
+  const out = store.addDevice({ endpoint, keys: { p256dh: str(keys.p256dh, 200), auth: str(keys.auth, 200) } }, { label, userAgent, visitor });
   if (out.full) throw Object.assign(new InputError('Too many devices are registered. Ask the admin to remove some.'), { status: 429 });
   return out;
 }
@@ -450,7 +450,8 @@ function createPublicRouter({ limit = 10 } = {}) {
     res.json({ known: /^[a-f0-9]{64}$/.test(hash) && store.getDevices().some(d => store.publicDevice(d).endpoint_hash === hash) });
   }));
   r.post('/register', limiter, handle(async (req, res) => {
-    const out = await registerDevice(req, { onlyKnownServices: true });
+    // The admin's own browser registers here too: only someone not signed in is a visitor, with a share of the slots.
+    const out = await registerDevice(req, { onlyKnownServices: true, visitor: !(req.session && req.session.authenticated) });
     if (out.created) logger.info(`notifications: a browser registered as a push device (${out.device.label})`);
     res.json({ success: true });
   }));

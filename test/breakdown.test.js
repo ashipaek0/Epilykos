@@ -103,7 +103,7 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
   });
 
   await check('labels: saved only for inputs in use; automatic ones sent for the editor', () => {
-    const srv = read('server.js');
+    const srv = read('routes/metricConfig.js');
     assert.match(srv, /for \(const input of def\.inputs\) \{ const l = typeof raw\.labels\[input\] === 'string' \? raw\.labels\[input\]\.trim\(\)\.slice\(0, 40\)/);
     assert.match(srv, /auto_labels: cm\.autoLabels\(\)/);
     assert.deepStrictEqual(Object.keys(cm.autoLabels().c), ['inv1_pv', 'inv2_pv_power']);

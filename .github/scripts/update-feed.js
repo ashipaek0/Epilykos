@@ -13,7 +13,13 @@
  * rebuild (base image and bundled tools only).
  *
  * Feed file: { channel, latest: <entry>, history: [<entry>, … newest first, 30 kept] }
- * entry:     { buildId, version, commit, digest, image, builtAt, kind: 'release'|'rebuild', notes: [..] }
+ * entry:     { buildId, version, commit, digest, image, builtAt, kind: 'release'|'rebuild', notes: [..],
+ *               attestation?: { id, url, repository, signer_workflow, subject } }
+ *
+ * attestation is the build's signed provenance for this digest (made by the build job with actions/attest-build-provenance), present only
+ * when the build made one. A check (EpilykosOS, before it installs) verifies it with
+ *   gh attestation verify oci://docker.io/<image>@<digest> --repo <repository>
+ * and must treat a feed entry without one as unverified. See docs/build-attestations.md.
  */
 const fs = require('fs');
 const { execFileSync } = require('child_process');
@@ -39,6 +45,18 @@ function notesSince(from, to) {
   }
 }
 
+/** The attestation reference from the record, only if it is whole (every part a short string); else none. */
+function attestationOf(record) {
+  const a = record && record.attestation;
+  if (!a || typeof a !== 'object') return null;
+  const out = {};
+  for (const key of ['id', 'url', 'repository', 'signer_workflow', 'subject']) {
+    if (typeof a[key] !== 'string' || !a[key] || a[key].length > 300) return null;
+    out[key] = a[key];
+  }
+  return out;
+}
+
 const sameCommit = previous && previous.commit === record.commit;
 const entry = {
   buildId: String(record.build_id),
@@ -50,6 +68,8 @@ const entry = {
   kind: sameCommit ? 'rebuild' : 'release',
   notes: sameCommit ? [] : notesSince(previous && previous.commit, record.commit),
 };
+const attestation = attestationOf(record);
+if (attestation) entry.attestation = attestation;
 
 feed = {
   channel,
@@ -57,4 +77,4 @@ feed = {
   history: [entry, ...(feed.history || []).filter(e => e && e.buildId !== entry.buildId)].slice(0, 30),
 };
 fs.writeFileSync(feedPath, JSON.stringify(feed, null, 2) + '\n');
-console.log(`${channel}: ${entry.kind} ${entry.version} build ${entry.buildId} (${entry.notes.length} notes)`);
+console.log(`${channel}: ${entry.kind} ${entry.version} build ${entry.buildId} (${entry.notes.length} notes, ${entry.attestation ? 'attested' : 'no attestation'})`);

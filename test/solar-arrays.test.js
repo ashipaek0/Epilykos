@@ -74,7 +74,7 @@ const solar = require('../modules/solar');
     assert.match(read('public/settings.html'), /type="hidden" id="solar-arrays" name="solar_arrays"/);
     const js = read('public/js/pv-arrays.js');
     assert.match(js, /set\('solar-capacity', total/); assert.match(js, /e\.target\.id === 'solar-arrays'\) init\(\)/);
-    assert.match(read('server.js'), /'solcast_resource_id', 'solar_arrays'/);
+    assert.match(read('routes/settings.js'), /'solcast_resource_id', 'solar_arrays'/);
   });
 
   console.log(`solar-arrays: ${passed} checks passed`);

@@ -68,7 +68,7 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     assert.ok('gone' in JSON.parse(database.getConfig('combined_metrics_state')), 'not in the poll loop any more');
     assert.strictEqual(cm.pruneState(), true);   // runs when definitions are saved
     assert.deepStrictEqual(Object.keys(JSON.parse(database.getConfig('combined_metrics_state'))).sort(), ['keep']);
-    assert.match(fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8'), /cm\.pruneState\(clean\)/);
+    assert.match(fs.readFileSync(path.join(__dirname, '..', 'routes/metricConfig.js'), 'utf8'), /cm\.pruneState\(clean\)/);
   });
 
   await check('per-part daily kWh is buffered (written every few minutes, at a new day, and before tables read it)', () => {
@@ -84,7 +84,7 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
 
   await check('rate limit, delete tidy-up and combined refusal are in the routes', () => {
     // The rules live in modules/metricDeletion.js (shared by deleting one and several); the route refuses with 409.
-    const srv = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+    const srv = fs.readFileSync(path.join(__dirname, '..', 'routes', 'metricManagement.js'), 'utf8');
     const rules = fs.readFileSync(path.join(__dirname, '..', 'modules', 'metricDeletion.js'), 'utf8');
     assert.match(rules, /rolesCleared\.forEach\(r => \{ roles\[r\] = ''; \}\)/);
     assert.match(rules, /reason: `\$\{name\} is a combined metric/);
