@@ -84,7 +84,7 @@ const { listPresets, getPreset, previewPath, metricsUsed, DIR } = require('../mo
   server.close();
 
   // Wiring in the editor and the server.
-  assert.match(importSrc, /Browse presets…/);
+  assert.match(importSrc, /Add from a preset…/);
   assert.match(importSrc, /function browsePresets\(/);
   assert.match(importSrc, /applyDashboardImport\(dashboardConfig, preset, 'Append'\)/, 'a preset goes in through the same Append as an import');
   assert.match(fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8'), /app\.use\('\/api\/presets', isAuthenticated/, 'presets need a signed-in session');
