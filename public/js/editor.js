@@ -5265,10 +5265,10 @@ function openDashboardMenu() {
   items.push({ label: 'Rename…', icon: 'text', disabled: readOnly || onControls, onSelect: function() { renameDashboard(); } });
   items.push({ label: 'Duplicate', icon: 'copy', disabled: readOnly || onControls, onSelect: duplicateDashboard });
   items.push({ label: 'New dashboard', icon: 'plus', disabled: readOnly, onSelect: newDashboard });
+  items.push({ label: 'Add from a preset…', icon: 'cards', disabled: readOnly, onSelect: browsePresets });
   if (isNarrow()) {
     items.push({ separator: true });
     exportMenuItems().forEach(function(it) { items.push(it); });
-    items.push({ label: 'Browse presets…', icon: 'cards', disabled: readOnly, onSelect: browsePresets });
     items.push({ label: 'Import from file…', icon: 'file', disabled: readOnly, onSelect: importLayout });
   }
   items.push({ separator: true });
@@ -5278,7 +5278,6 @@ function openDashboardMenu() {
 
 function openIoMenu() {
   openMenu($('io-btn'), exportMenuItems().concat([
-    { label: 'Browse presets…', icon: 'cards', disabled: readOnly, onSelect: browsePresets },
     { label: 'Import from file…', icon: 'file', disabled: readOnly, onSelect: importLayout }
   ]), { label: 'Import or export' });
 }
