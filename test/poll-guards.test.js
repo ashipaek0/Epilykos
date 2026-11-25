@@ -68,7 +68,7 @@ async function check(name, fn) { await fn(); passed++; console.log(`ok - ${name}
     assert.ok('gone' in JSON.parse(database.getConfig('combined_metrics_state')), 'not in the poll loop any more');
     assert.strictEqual(cm.pruneState(), true);   // runs when definitions are saved
     assert.deepStrictEqual(Object.keys(JSON.parse(database.getConfig('combined_metrics_state'))).sort(), ['keep']);
-    assert.match(fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8'), /cm\.pruneState\(clean\)/);
+    assert.match(fs.readFileSync(path.join(__dirname, '..', 'routes/metricConfig.js'), 'utf8'), /cm\.pruneState\(clean\)/);
   });
 
   await check('per-part daily kWh is buffered (written every few minutes, at a new day, and before tables read it)', () => {
