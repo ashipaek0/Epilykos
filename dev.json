@@ -1,25 +1,44 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "45581853826.1",
-    "version": "1.3.11-dev+a6375eb",
-    "commit": "a6375eba943061d06109500a27009f3f7c65f2f8",
-    "digest": "sha256:cac0a92ae13d8d37a41fb1af96c5dbc96ea660b25b035559637ad58b7d223827",
+    "buildId": "45582848972.1",
+    "version": "1.3.11-dev+7c6bbd7",
+    "commit": "7c6bbd7ec229fb202d5074e7959369f8bdbd7d8a",
+    "digest": "sha256:8463fd596a9b3294740923a76351742926d62b190bf8a3d086dc010927c084a5",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-25T09:04:21Z",
+    "builtAt": "2026-11-25T09:10:39Z",
     "kind": "release",
     "notes": [
-      "Refactor: move the role metrics, Virtual Battery and combined metrics routes out of server.js into routes/metricConfig.js (#449)"
+      "Refactor: move the dashboard layout routes, the metric read routes and the upload handling out of server.js (#450)"
     ],
     "attestation": {
-      "id": "72059863",
-      "url": "https://github.com/ashipaek0/Epilykos/attestations/72059863",
+      "id": "72062598",
+      "url": "https://github.com/ashipaek0/Epilykos/attestations/72062598",
       "repository": "ashipaek0/Epilykos",
       "signer_workflow": "ashipaek0/Epilykos/.github/workflows/docker-build-dev.yml@refs/heads/dev",
-      "subject": "irunmole/epilykos@sha256:cac0a92ae13d8d37a41fb1af96c5dbc96ea660b25b035559637ad58b7d223827"
+      "subject": "irunmole/epilykos@sha256:8463fd596a9b3294740923a76351742926d62b190bf8a3d086dc010927c084a5"
     }
   },
   "history": [
+    {
+      "buildId": "45582848972.1",
+      "version": "1.3.11-dev+7c6bbd7",
+      "commit": "7c6bbd7ec229fb202d5074e7959369f8bdbd7d8a",
+      "digest": "sha256:8463fd596a9b3294740923a76351742926d62b190bf8a3d086dc010927c084a5",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-25T09:10:39Z",
+      "kind": "release",
+      "notes": [
+        "Refactor: move the dashboard layout routes, the metric read routes and the upload handling out of server.js (#450)"
+      ],
+      "attestation": {
+        "id": "72062598",
+        "url": "https://github.com/ashipaek0/Epilykos/attestations/72062598",
+        "repository": "ashipaek0/Epilykos",
+        "signer_workflow": "ashipaek0/Epilykos/.github/workflows/docker-build-dev.yml@refs/heads/dev",
+        "subject": "irunmole/epilykos@sha256:8463fd596a9b3294740923a76351742926d62b190bf8a3d086dc010927c084a5"
+      }
+    },
     {
       "buildId": "45581853826.1",
       "version": "1.3.11-dev+a6375eb",
@@ -383,18 +402,6 @@
       "kind": "release",
       "notes": [
         "Add the Automations page and API, with per-automation take over (#420)"
-      ]
-    },
-    {
-      "buildId": "45361480049.1",
-      "version": "1.3.9-dev+86d6728",
-      "commit": "86d67286d127ec1865fe9e9abf9218f68298a2bc",
-      "digest": "sha256:18eee2ed15868aaca61b4cd75bf5494182e68c4279c037d5d6b22f0c83dccfcc",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-24T09:03:17Z",
-      "kind": "release",
-      "notes": [
-        "Add the control automations engine and storage (#419)"
       ]
     }
   ]
