@@ -136,6 +136,7 @@ const { router: metricsRouter, buildDashboardState, sharedDashboardState } = req
 const entityCatalog = require('./modules/entityCatalog');
 const { bundledProfilePath } = require('./modules/bundledProfiles');
 const { updateInverterMetrics } = require('./modules/inverterSetup');
+const publicMetrics = require('./modules/publicMetrics');
 const { stringFields } = require('./modules/requestFields');
 
 // ================= #108 catalog projections (pure) =================
@@ -252,7 +253,7 @@ if (sessionSecret) {
 // so they survive a restart, matching the persistent secret above.
 const { createSessionStore } = require('./modules/sessionStore');
 const sessionStore = createSessionStore(session);
-app.use(session({
+const sessionMiddleware = session({
   store: sessionStore,
   secret: sessionSecret,
   resave: false,
@@ -262,13 +263,16 @@ app.use(session({
   // sameSite 'lax' keeps the cookie off cross-site subrequests (CSRF defence in
   // depth next to the X-Requested-With check in csrfProtection).
   cookie: { secure: 'auto', httpOnly: true, sameSite: 'lax', maxAge: 24 * 60 * 60 * 1000 }
-}));
+});
+app.use(sessionMiddleware);
 
 // Guard every unsafe request after sessions and before any route.
 app.use(csrfProtection);
 
 // Initialize database, load profiles, start MQTT and external polling
 initializeDatabase();
+// Whether visitors may read every reading (Settings → Appearance): on for an install that already exists, off for a new one.
+try { require('./modules/publicMetrics').ensureDefault(); } catch (e) { logger.warn('Could not set the default for sharing readings: ' + e.message); }
 require('./routes/remote').init();
 require('./modules/dbCheck').start();
 loadProfiles(); loadRs232Profiles();
@@ -421,39 +425,40 @@ const wss = new WebSocket.Server({
   verifyClient: ({ req }, done) => {
     if (!wsOriginAllowed(req)) return done(false, 403, 'Forbidden');
     if (wss.clients.size >= WS_MAX_CLIENTS || (wsPerAddress.get(wsClientAddress(req)) || 0) >= WS_MAX_PER_ADDRESS) return done(false, 429, 'Too many connections');
-    done(true);
+    // Who is asking: a signed-in session is sent every reading, a visitor what the public dashboards show
+    // (modules/publicMetrics.js). The session cookie rides on the upgrade request like any other.
+    req.originalUrl = req.url;
+    sessionMiddleware(req, {}, err => { req.wsSignedIn = !err && !!(req.session && req.session.authenticated); done(true); });
   }
 });
 
 // Store connected WebSocket clients
 const wsClients = new Set();
 
-// Delta-broadcast state: last sent snapshot + consecutive-suppression counter
-// (staleness guard forces a full state every 3rd cycle when nothing changed).
-let lastBroadcastState = null;
-let consecutiveSuppress = 0;
-let broadcastTooLargeLogged = false;
+// Delta-broadcast state, one set per audience: what the pages of that audience were last sent, and the count of quiet
+// cycles in a row (the staleness guard forces a whole state every third quiet cycle). Everyone is one audience while
+// visitors may read every reading; otherwise signed-in pages get the whole state and visitors a filtered copy.
+const broadcastChannels = { full: { last: null, quiet: 0, tooLargeLogged: false }, visitors: { last: null, quiet: 0, tooLargeLogged: false } };
+let lastSharingAll = null;
 
-/**
- * Push dashboard state to all connected WebSocket clients.
- * What is sent (the change, the whole state, or nothing) is decided in
- * modules/broadcastPlan.js.
- * @param {object} state - built by buildDashboardState()
- * @param {{live?: boolean}} [opts] live: an extra push between polling cycles; an empty
- *   delta sends nothing and does not count toward the every-third full refresh.
- */
-function broadcastDashboardState(state, { live = false } = {}) {
-  const plan = planBroadcast({ state, delta: computeDelta(state, lastBroadcastState), quietCycles: consecutiveSuppress, live });
-  consecutiveSuppress = plan.quietCycles;
+/** The state a client of this audience is sent. */
+function stateForClient(state, client, sharingAll) {
+  return sharingAll || client.wsSignedIn ? state : publicMetrics.filterState(state, publicMetrics.allowedNames());
+}
+
+/** Send one audience its change (or the whole state, or nothing: modules/broadcastPlan.js decides). */
+function sendToChannel(channel, clients, state, live) {
+  const plan = planBroadcast({ state, delta: computeDelta(state, channel.last), quietCycles: channel.quiet, live });
+  channel.quiet = plan.quietCycles;
   if (plan.tooLarge) {
     // Once per episode, not every cycle; the pages fall back to fetching.
-    if (!broadcastTooLargeLogged) logger.warn(`Dashboard update not sent to open pages: ${plan.tooLarge} bytes is over the ${MAX_MESSAGE_BYTES} byte limit`);
-    broadcastTooLargeLogged = true;
+    if (!channel.tooLargeLogged) logger.warn(`Dashboard update not sent to open pages: ${plan.tooLarge} bytes is over the ${MAX_MESSAGE_BYTES} byte limit`);
+    channel.tooLargeLogged = true;
     return;
   }
   if (!plan.message) return;
-  broadcastTooLargeLogged = false;
-  wsClients.forEach(client => {
+  channel.tooLargeLogged = false;
+  for (const client of clients) {
     if (client.readyState === WebSocket.OPEN) {
       client.send(plan.message, err => {
         if (err) {
@@ -462,13 +467,33 @@ function broadcastDashboardState(state, { live = false } = {}) {
         }
       });
     }
-  });
+  }
   // What the pages now have: the next change is measured against it.
   try {
-    lastBroadcastState = (typeof structuredClone === 'function') ? structuredClone(state) : JSON.parse(JSON.stringify(state));
+    channel.last = (typeof structuredClone === 'function') ? structuredClone(state) : JSON.parse(JSON.stringify(state));
   } catch (e) {
-    lastBroadcastState = JSON.parse(JSON.stringify(state));
+    channel.last = JSON.parse(JSON.stringify(state));
   }
+}
+
+/**
+ * Push dashboard state to all connected WebSocket clients.
+ * @param {object} state - built by buildDashboardState()
+ * @param {{live?: boolean}} [opts] live: an extra push between polling cycles; an empty
+ *   delta sends nothing and does not count toward the every-third full refresh.
+ */
+function broadcastDashboardState(state, { live = false } = {}) {
+  const sharingAll = publicMetrics.shareAll();
+  if (lastSharingAll !== null && lastSharingAll !== sharingAll) {
+    // Who may see what just changed: every page gets a whole state of its kind next.
+    broadcastChannels.full.last = null; broadcastChannels.visitors.last = null;
+  }
+  lastSharingAll = sharingAll;
+  const signedIn = [], visitors = [];
+  for (const client of wsClients) (sharingAll || client.wsSignedIn ? signedIn : visitors).push(client);
+  sendToChannel(broadcastChannels.full, signedIn, state, live);
+  if (visitors.length) sendToChannel(broadcastChannels.visitors, visitors, publicMetrics.filterState(state, publicMetrics.allowedNames()), live);
+  else broadcastChannels.visitors.last = null;
 }
 
 // WebSocket connection handler
@@ -481,6 +506,7 @@ wss.on('connection', (ws, req) => {
   };
   ws.once('close', release);
   ws.isAlive = true;
+  ws.wsSignedIn = req.wsSignedIn === true;
   ws.on('pong', () => { ws.isAlive = true; });
   wsClients.add(ws);
   logger.info(`WebSocket client connected (${wsClients.size} total)`);
@@ -488,7 +514,7 @@ wss.on('connection', (ws, req) => {
   (async () => {
     try {
       const state = await sharedDashboardState();
-      ws.send(JSON.stringify({ type: 'dashboard-state', data: state }));
+      ws.send(JSON.stringify({ type: 'dashboard-state', data: stateForClient(state, ws, publicMetrics.shareAll()) }));
     } catch (err) {
       logger.error('Error sending initial state via WebSocket:', err);
     }
@@ -938,7 +964,8 @@ app.get('/login', (req, res) => {
 // ---------- Metrics endpoints ----------
 app.get('/api/metrics/current', async (req, res) => {
   try {
-    res.json(getCurrentMetrics());
+    const metrics = getCurrentMetrics();
+    res.json(publicMetrics.seesAll(req) ? metrics : publicMetrics.filterMap(metrics, publicMetrics.allowedNames()));
   } catch (err) {
     logger.error('Error in /api/metrics/current:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -953,6 +980,8 @@ app.get('/api/metrics/history', async (req, res) => {
   // year of raw readings is a heavy response anyone could request. Signed in,
   // up to a year.
   const signedIn = !!(req.session && req.session.authenticated);
+  // A visitor reads the readings the dashboards visible to them show; the rest need a sign-in (or sharing on).
+  if (!publicMetrics.seesAll(req) && !publicMetrics.allowedNames().has(metric)) return res.status(403).json({ error: 'This reading is not shown on a public dashboard. Sign in to see it.' });
   const maxHours = signedIn ? 8760 : 168;
   if (isNaN(hours) || hours < 1) return res.status(400).json({ error: `hours must be 1-${maxHours}` });
   if (hours > maxHours) return res.status(signedIn ? 400 : 403).json({ error: signedIn ? 'hours must be 1-8760' : 'Without signing in, history covers up to 7 days (168 hours).' });
@@ -968,7 +997,7 @@ app.get('/api/metrics/names', async (req, res) => {
   try {
     const rows = getDb().prepare('SELECT metric FROM latest_metrics ORDER BY metric').all();
     const names = rows.map(r => r.metric);
-    res.json(names);
+    res.json(publicMetrics.seesAll(req) ? names : names.filter(n => publicMetrics.allowedNames().has(n)));
   } catch (err) {
     logger.error('Error in /api/metrics/names:', err);
     res.status(500).json({ error: 'Internal server error' });

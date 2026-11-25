@@ -52,7 +52,7 @@ console.log('ok - an oversized state no longer stops live updates: the change is
 
 // The server uses it, logs an oversized update once, and the old 64 KB block is gone.
 const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
-assert.match(server, /planBroadcast\(\{ state, delta: computeDelta\(state, lastBroadcastState\), quietCycles: consecutiveSuppress, live \}\)/);
-assert.match(server, /if \(!broadcastTooLargeLogged\) logger\.warn/);
+assert.match(server, /planBroadcast\(\{ state, delta: computeDelta\(state, channel\.last\), quietCycles: channel\.quiet, live \}\)/);
+assert.match(server, /if \(!channel\.tooLargeLogged\) logger\.warn/);
 assert.doesNotMatch(server, /exceeds 64KB limit/);
 checks.done();

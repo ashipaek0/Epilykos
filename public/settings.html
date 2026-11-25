@@ -397,6 +397,8 @@
             <div id="public-dashboards" class="st-field"></div>
             <input type="hidden" id="public-dashboards-value" name="public_dashboards" value="[]">
             <p class="st-help">Visitors see the dashboards chosen above. Tick any other dashboard to show it to them too. Controls is only ever shown when signed in.</p>
+            <div class="st-toggle-row"><span class="toggle-wrap"><label class="toggle-switch"><input type="checkbox" id="public-share-all" name="public_share_all_metrics"><span class="slider"></span></label><label for="public-share-all">Share every reading without signing in</label></span></div>
+            <p class="st-help">On: anyone who can reach this page can read every reading, which is what a Home Assistant integration needs. Off: visitors get only the readings the dashboards shown to them use, and everything else needs a sign-in. Signed in, you always see everything.</p>
             <p class="st-help">Phones always show the tabs along the top. Visitors can fold them away with the ☰ button.</p>
             <p class="st-help"><b>No tabs</b> gives the old behaviour: visitors see only the dashboard chosen above for their device, with no tab bar. Signed in, you always have the bar (your dashboards, Controls and Edit layout), and the ☰ button folds it away.</p>
             <p class="st-help">Rename, add, delete, import or export dashboards in the <a href="/editor">layout editor</a>.</p>
