@@ -73,6 +73,9 @@ function middleware() {
   if (CSP === null) CSP = buildCsp(collectInlineScriptHashes());
   return function securityHeaders(req, res, next) {
     res.setHeader('Content-Security-Policy', CSP);
+    // Over HTTPS (directly or through a trusted proxy) browsers are told to keep using it. Not sent over plain HTTP, where it
+    // would mean nothing, and without includeSubDomains or preload: a site on the same domain may not have HTTPS.
+    if (req.secure) res.setHeader('Strict-Transport-Security', 'max-age=15552000');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     res.setHeader('Referrer-Policy', 'same-origin');

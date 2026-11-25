@@ -2,13 +2,15 @@
 /**
  * Unauthenticated PVOutput webhook. Before the fix, an attacker who guessed
  * the (semi-public) system_id could POST alerts with no auth. After the fix
- * the endpoint is closed unless PVOutput is enabled, and an optional
- * webhook_token locks it shut even when the system_id is known.
+ * the endpoint is closed unless PVOutput is enabled, and a webhook_token of at
+ * least 16 characters is required: without one the endpoint stays shut even
+ * when the system_id is known.
  *
  *   node test/security/05-webhook.js
  */
 const { request, login, xhr } = require('./_client');
 const results = [];
+const TOKEN = 'S3cretToken-0123456789';   // 16 characters or more, as the endpoint requires
 const add = (scenario, status, expectRefused) =>
   results.push({ scenario, status, refused: status === 403 || status === 400,
     verdict: (status === 403 || status === 400) === expectRefused ? 'ok' : (expectRefused ? 'VULNERABLE (accepted)' : 'unexpected-refusal') });
@@ -28,20 +30,20 @@ async function webhook(body, path = '/api/pvoutput/webhook') {
   await setCfg({ system_id: '12345', api_key: 'x', enabled: false });
   add('configured, disabled → guessed sid', await webhook({ sid: '12345', type: '4', message: 'x' }), true);
 
-  // 2. Enabled, correct sid, no token configured → accepted (legacy behaviour).
+  // 2. Enabled, correct sid, no token configured → refused (the endpoint stays shut until Settings makes a token).
   await setCfg({ system_id: '12345', api_key: 'x', enabled: true });
-  add('enabled, correct sid, no token → accepted', await webhook({ sid: '12345', type: '4', message: 'x' }), false);
+  add('enabled, correct sid, no token configured → refused', await webhook({ sid: '12345', type: '4', message: 'x' }), true);
 
   // 3. Enabled, WRONG sid → refused.
   add('enabled, wrong sid', await webhook({ sid: '99999', type: '4', message: 'x' }), true);
 
   // 4. Token configured, attacker lacks it → refused even with correct sid.
-  await setCfg({ system_id: '12345', api_key: 'x', enabled: true, webhook_token: 'S3cretToken' });
+  await setCfg({ system_id: '12345', api_key: 'x', enabled: true, webhook_token: TOKEN });
   add('token set, correct sid, NO token → refused', await webhook({ sid: '12345', type: '4', message: 'x' }), true);
   add('token set, wrong token', await webhook({ sid: '12345', type: '4', message: 'x' }, '/api/pvoutput/webhook?token=nope'), true);
 
   // 5. Token configured, correct token → accepted (the legitimate caller).
-  add('token set, correct token → accepted', await webhook({ sid: '12345', type: '4', message: 'x' }, '/api/pvoutput/webhook?token=S3cretToken'), false);
+  add('token set, correct token → accepted', await webhook({ sid: '12345', type: '4', message: 'x' }, `/api/pvoutput/webhook?token=${TOKEN}`), false);
 
   // reset
   await setCfg({ system_id: '', api_key: '', enabled: false });

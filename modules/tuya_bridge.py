@@ -21,6 +21,11 @@ class DeviceError(Exception):
     pass
 
 
+def _secret(value, name):
+    """A secret arrives in the environment (the command line is readable by every local user); '@env' is the placeholder."""
+    return os.environ.pop(name, "") if value == "@env" else value
+
+
 def _make_device(dev_id, address, local_key, version, retries=POLL_RETRIES):
     from tinytuya import Device
     d = Device(dev_id, address, local_key)
@@ -155,7 +160,7 @@ def main():
             sys.exit(1)
         dev_id = sys.argv[2]
         address = sys.argv[3]
-        local_key = sys.argv[4]
+        local_key = _secret(sys.argv[4], "TUYA_LOCAL_KEY")
         version = sys.argv[5]
         dp_id = int(sys.argv[6])
         raw_value = sys.argv[7]
@@ -191,6 +196,7 @@ def main():
         sys.exit(1)
 
     dev_id, address, local_key, version = sys.argv[2:6]
+    local_key = _secret(local_key, "TUYA_LOCAL_KEY")
 
     try:
         if action == "poll":

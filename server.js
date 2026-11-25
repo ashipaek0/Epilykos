@@ -221,6 +221,8 @@ app.use(globalLimiter);
 
 // Morgan HTTP request logging (stream to winston)
 // Settings → Logs polls every few seconds; logging those requests would fill the log with itself.
+// The address is logged without the value of a secret in it (a token in a query, the PVOutput webhook address).
+morgan.token('url', req => require('./modules/logRedact').redactUrl(req.originalUrl || req.url));
 app.use(morgan('combined', { stream: logger.stream, skip: req => req.originalUrl.startsWith('/api/logs') }));
 
 // Compression (gzip + brotli)
