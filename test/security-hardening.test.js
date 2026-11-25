@@ -149,9 +149,11 @@ process.env.ENC_KEY_FILE = path.join(dir, 'key');
   console.log('ok - Permissions-Policy, HSTS only over HTTPS, no X-Powered-By');
 
   // ── Uploads and the BLE helper ───────────────────────────────────────
-  assert.match(server, /const uploadDir = fs\.mkdtempSync\(path\.join\(require\('os'\)\.tmpdir\(\), 'epilykos-uploads-'\)\)/);
-  assert.match(server, /dest: uploadDir,/);
-  assert.match(server, /const root = path\.resolve\(uploadDir\);/);
+  const uploadsSource = read('modules/uploads.js');
+  assert.match(uploadsSource, /const uploadDir = fs\.mkdtempSync\(path\.join\(os\.tmpdir\(\), 'epilykos-uploads-'\)\)/);
+  assert.match(uploadsSource, /dest: uploadDir,/);
+  assert.match(uploadsSource, /const root = path\.resolve\(uploadDir\);/);
+  assert.match(server, /require\('\.\/modules\/uploads'\)\.createUploads\(\)/, 'the server makes its uploads there');
   assert.match(read('modules/ble.js'), /child\.stdin\.on\('error'/);
   const probe = fs.mkdtempSync(path.join(os.tmpdir(), 'epilykos-uploads-'));
   assert.equal(fs.statSync(probe).mode & 0o077, 0, 'mkdtemp makes the folder readable by this process only');

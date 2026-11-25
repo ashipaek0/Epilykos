@@ -52,7 +52,7 @@ assert.throws(() => getMetricHistory('', 24, { maxPoints: 2016 }), /Metric name 
 console.log('ok - from the database: signed-in gets every point, anonymous gets the thinned series');
 
 // ── The route ───────────────────────────────────────────────────────────
-const src = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+const src = fs.readFileSync(path.join(__dirname, '..', 'routes', 'metrics.js'), 'utf8');
 assert.match(src, /const PUBLIC_HISTORY_MAX_POINTS = 2016;/);
 assert.match(src, /getMetricHistory\(metric, hours, signedIn \? \{\} : \{ maxPoints: PUBLIC_HISTORY_MAX_POINTS \}\)/, 'only an anonymous request is thinned');
 console.log('ok - the history route thins only anonymous requests');
