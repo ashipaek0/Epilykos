@@ -1,18 +1,44 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "45577459806.1",
-    "version": "1.3.11-dev+0ebc608",
-    "commit": "0ebc60823b23fd34392bc914d9bb4667f863fc8f",
-    "digest": "sha256:9ebd9d627584b0117587b2228e48123b55e9ebc002dd78c90e1c8daa8396d3a8",
+    "buildId": "45577475120.1",
+    "version": "1.3.11-dev+b3e1ee9",
+    "commit": "b3e1ee97ab3fe6a8f0a2098e2fa01dcc81478dac",
+    "digest": "sha256:cbe85fcd6211ececaa4ab3a183b9aa8b782da73fb667667916563e5a274a427a",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-25T08:34:45Z",
+    "builtAt": "2026-11-25T08:34:51Z",
     "kind": "release",
     "notes": [
-      "Fix the low-severity findings and the small bugs from the security and debugging review (#446)"
-    ]
+      "Attest the pushed images and put the attestation reference in the digest record and the update feed (#447)"
+    ],
+    "attestation": {
+      "id": "72049941",
+      "url": "https://github.com/ashipaek0/Epilykos/attestations/72049941",
+      "repository": "ashipaek0/Epilykos",
+      "signer_workflow": "ashipaek0/Epilykos/.github/workflows/docker-build-dev.yml@refs/heads/dev",
+      "subject": "irunmole/epilykos@sha256:cbe85fcd6211ececaa4ab3a183b9aa8b782da73fb667667916563e5a274a427a"
+    }
   },
   "history": [
+    {
+      "buildId": "45577475120.1",
+      "version": "1.3.11-dev+b3e1ee9",
+      "commit": "b3e1ee97ab3fe6a8f0a2098e2fa01dcc81478dac",
+      "digest": "sha256:cbe85fcd6211ececaa4ab3a183b9aa8b782da73fb667667916563e5a274a427a",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-25T08:34:51Z",
+      "kind": "release",
+      "notes": [
+        "Attest the pushed images and put the attestation reference in the digest record and the update feed (#447)"
+      ],
+      "attestation": {
+        "id": "72049941",
+        "url": "https://github.com/ashipaek0/Epilykos/attestations/72049941",
+        "repository": "ashipaek0/Epilykos",
+        "signer_workflow": "ashipaek0/Epilykos/.github/workflows/docker-build-dev.yml@refs/heads/dev",
+        "subject": "irunmole/epilykos@sha256:cbe85fcd6211ececaa4ab3a183b9aa8b782da73fb667667916563e5a274a427a"
+      }
+    },
     {
       "buildId": "45577459806.1",
       "version": "1.3.11-dev+0ebc608",
@@ -355,18 +381,6 @@
       "kind": "release",
       "notes": [
         "Showcase data: honour the caller's clock so the window doesn't slide away (#417)"
-      ]
-    },
-    {
-      "buildId": "45180736274.1",
-      "version": "1.3.8-dev+c147161",
-      "commit": "c147161f44284bceafdcb0d4727e7fec5b60a5f8",
-      "digest": "sha256:9892d772fc1d41eb0564ef81b8fef408c50fe7fdefc09c2e46e4fcf3b74bca05",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-23T13:07:31Z",
-      "kind": "release",
-      "notes": [
-        "Bump express-rate-limit (#415)"
       ]
     }
   ]
