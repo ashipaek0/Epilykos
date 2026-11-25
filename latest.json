@@ -1,19 +1,70 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "45483745226.1",
-    "version": "1.3.10",
-    "commit": "060051cb109dde7716754f665cc8841c6a7ebd65",
-    "digest": "sha256:b26a44931ec69fd917927095883b305b690c8a189f6a8de0176f568ed9e03450",
+    "buildId": "45588983713.1",
+    "version": "1.3.11",
+    "commit": "5fcd8a8ef400f6f1d8c0526088f6e7c6579ba27c",
+    "digest": "sha256:49170957779cfe84ec01470cb4437afe9de769e6b02a35cc6ff7eaaa4c504a5c",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-24T20:43:52Z",
+    "builtAt": "2026-11-25T09:49:21Z",
     "kind": "release",
     "notes": [
-      "Log how each evening-summary figure was derived (#434)",
-      "Refactor: move the Tuya helper routes out of server.js into routes/tuya.js (#433)"
-    ]
+      "Refactor: move the dashboard layout routes, the metric read routes and the upload handling out of server.js (#450)",
+      "Refactor: move the role metrics, Virtual Battery and combined metrics routes out of server.js into routes/metricConfig.js (#449)",
+      "Refactor: move the REST source and forecast test routes out of server.js into routes/integrations.js (#448)",
+      "Attest the pushed images and put the attestation reference in the digest record and the update feed (#447)",
+      "Fix the low-severity findings and the small bugs from the security and debugging review (#446)",
+      "Share every reading without signing in: a setting, on for existing installs and off for new ones (#445)",
+      "Thin anonymous metric history to the stored 5-minute resolution (#444)",
+      "Refactor: move the restore and snapshot routes out of server.js into routes/restore.js (#443)",
+      "Refactor: move the Home Assistant and MQTT routes out of server.js into routes/integrations.js (#442)",
+      "Refactor: move the settings routes out of server.js into routes/settings.js (#441)",
+      "Refactor: move the metric management routes out of server.js into routes/metricManagement.js (#440)",
+      "Refactor: move the modbus and rs232 profile and test routes out of server.js into routes/profiles.js (#439)",
+      "Refactor: move the Bluetooth and wired BMS routes out of server.js into routes/bms.js (#438)",
+      "Refactor: move the dongle routes out of server.js into routes/dongle.js (#437)"
+    ],
+    "attestation": {
+      "id": "72080758",
+      "url": "https://github.com/ashipaek0/Epilykos/attestations/72080758",
+      "repository": "ashipaek0/Epilykos",
+      "signer_workflow": "ashipaek0/Epilykos/.github/workflows/docker-build.yml@refs/heads/main",
+      "subject": "irunmole/epilykos@sha256:49170957779cfe84ec01470cb4437afe9de769e6b02a35cc6ff7eaaa4c504a5c"
+    }
   },
   "history": [
+    {
+      "buildId": "45588983713.1",
+      "version": "1.3.11",
+      "commit": "5fcd8a8ef400f6f1d8c0526088f6e7c6579ba27c",
+      "digest": "sha256:49170957779cfe84ec01470cb4437afe9de769e6b02a35cc6ff7eaaa4c504a5c",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-25T09:49:21Z",
+      "kind": "release",
+      "notes": [
+        "Refactor: move the dashboard layout routes, the metric read routes and the upload handling out of server.js (#450)",
+        "Refactor: move the role metrics, Virtual Battery and combined metrics routes out of server.js into routes/metricConfig.js (#449)",
+        "Refactor: move the REST source and forecast test routes out of server.js into routes/integrations.js (#448)",
+        "Attest the pushed images and put the attestation reference in the digest record and the update feed (#447)",
+        "Fix the low-severity findings and the small bugs from the security and debugging review (#446)",
+        "Share every reading without signing in: a setting, on for existing installs and off for new ones (#445)",
+        "Thin anonymous metric history to the stored 5-minute resolution (#444)",
+        "Refactor: move the restore and snapshot routes out of server.js into routes/restore.js (#443)",
+        "Refactor: move the Home Assistant and MQTT routes out of server.js into routes/integrations.js (#442)",
+        "Refactor: move the settings routes out of server.js into routes/settings.js (#441)",
+        "Refactor: move the metric management routes out of server.js into routes/metricManagement.js (#440)",
+        "Refactor: move the modbus and rs232 profile and test routes out of server.js into routes/profiles.js (#439)",
+        "Refactor: move the Bluetooth and wired BMS routes out of server.js into routes/bms.js (#438)",
+        "Refactor: move the dongle routes out of server.js into routes/dongle.js (#437)"
+      ],
+      "attestation": {
+        "id": "72080758",
+        "url": "https://github.com/ashipaek0/Epilykos/attestations/72080758",
+        "repository": "ashipaek0/Epilykos",
+        "signer_workflow": "ashipaek0/Epilykos/.github/workflows/docker-build.yml@refs/heads/main",
+        "subject": "irunmole/epilykos@sha256:49170957779cfe84ec01470cb4437afe9de769e6b02a35cc6ff7eaaa4c504a5c"
+      }
+    },
     {
       "buildId": "45483745226.1",
       "version": "1.3.10",
@@ -438,18 +489,6 @@
       "builtAt": "2026-11-08T17:46:12Z",
       "kind": "rebuild",
       "notes": []
-    },
-    {
-      "buildId": "42506202470.1",
-      "version": "1.1.5",
-      "commit": "0ed5947e07f7d26f15f75097aaa765168c95c97e",
-      "digest": "sha256:a4c81083d8cc4422c24b67dc272846df3731c92c99f612d458f2dd7de1a5fb0d",
-      "image": "irunmole/epilykos:latest",
-      "builtAt": "2026-11-08T17:41:40Z",
-      "kind": "release",
-      "notes": [
-        "Control cards: use inverter and battery settings as a source (#298)"
-      ]
     }
   ]
 }
