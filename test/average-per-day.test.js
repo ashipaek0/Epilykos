@@ -130,6 +130,6 @@ console.log('ok - validation');
 const ui = fs.readFileSync(path.join(REPO, 'public/js/combined-metrics.js'), 'utf8');
 assert.ok(/average_per_day: \{ label: 'Average per day'/.test(ui) && /cm-daily/.test(ui) && /cm-span/.test(ui) && /cm-today/.test(ui), 'editor fields');
 assert.ok(/d\.daily = v\('cm-daily'\)/.test(ui) && /d\.include_today =/.test(ui), 'read back');
-assert.ok(/'daily', 'days', 'include_today'/.test(fs.readFileSync(path.join(REPO, 'server.js'), 'utf8')), 'the save route keeps the settings');
+assert.ok(/'daily', 'days', 'include_today'/.test(fs.readFileSync(path.join(REPO, 'routes/metricConfig.js'), 'utf8')), 'the save route keeps the settings');
 
 checks.done();
