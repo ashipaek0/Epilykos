@@ -182,4 +182,4 @@ async function pollLegacyHistory() {
   );
 }
 
-module.exports = { pollLegacyHistory, resetCarryOverForTests: () => { carry = { day: null, final: {}, last: {} }; } };
+module.exports = { ROLE_TO_COL, pollLegacyHistory, resetCarryOverForTests: () => { carry = { day: null, final: {}, last: {} }; } };

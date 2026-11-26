@@ -136,6 +136,28 @@ function freezeFinishedDays(db, settings, now) {
 }
 
 /**
+ * Count finished days that were added to the history after their turn came (an import of past readings): the days
+ * from `fromDay` up to the last counted one that have a total but no kept value yet, at the prices in force now.
+ * Days already kept are left as they are. Returns how many were added.
+ */
+function countAddedPastDays(db, fromDay) {
+  const through = getConfig(FROZEN_KEY) || '';
+  if (!through || !fromDay || fromDay >= through) return 0;   // not counted yet: the next count takes them all
+  const settings = savingsSettings();
+  const days = daysBetween(db, settings, fromDay, dayStartSeconds(through), through);
+  const insert = db.prepare('INSERT OR IGNORE INTO savings_daily (day, kwh, price, value, method) VALUES (?, ?, ?, ?, ?)');
+  let added = 0;
+  db.transaction(() => {
+    for (const d of days) {
+      const kwh = d.daily_solar || 0, p = dayPrice(settings, d);
+      added += insert.run(d.day, kwh, p, kwh * p, settings.method).changes;
+    }
+  })();
+  if (added) logger.info(`[savings] Counted ${added} imported day${added === 1 ? '' : 's'} at the current prices`);
+  return added;
+}
+
+/**
  * Forget every finished day's kept value; the next call counts them all again at the current prices
  * (Settings > Prices and savings > Recalculate history).
  */
@@ -195,4 +217,4 @@ function computeSavings({ todaySolarKwh = 0, db = getDb(), now = new Date() } = 
   };
 }
 
-module.exports = { computeSavings, savingsSettings, solarByGrid, dayPrice, recalculateSavingsHistory, METHODS };
+module.exports = { computeSavings, savingsSettings, solarByGrid, dayPrice, recalculateSavingsHistory, countAddedPastDays, METHODS };

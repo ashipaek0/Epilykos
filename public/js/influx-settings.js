@@ -9,7 +9,8 @@
   var connRoot = document.getElementById('influx-conn-root');
   var mapRoot = document.getElementById('influx-map-root');
   var writeRoot = document.getElementById('influx-write-root');
-  if (!connRoot || !mapRoot || !writeRoot) return;
+  var importRoot = document.getElementById('influx-import-root');
+  if (!connRoot || !mapRoot || !writeRoot || !importRoot) return;
   var shell = window.stShell || {};
   var data = null;
   var measurements = [];                 // from discovery, for the measurement suggestions
@@ -207,7 +208,7 @@
     add.addEventListener('click', function () { addRow({}); });
     save.addEventListener('click', function () {
       save.disabled = true;
-      api('/mapping', { mapping: currentRows() }).then(function (d) { data = d; drawMapping(); toast('Saved'); })
+      api('/mapping', { mapping: currentRows() }).then(function (d) { data = d; drawMapping(); drawImport(); toast('Saved'); })
         .catch(function (e) { toast(e.message, 'error'); save.disabled = false; });
     });
     ha.addEventListener('click', function () {
@@ -248,6 +249,84 @@
     box.appendChild(addSel);
   }
 
+  // ── Import history ──────────────────────────────────────────────────
+  var importTimer = null;
+  function fmtDate(s) { return s ? new Date(s * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : ''; }
+  function fmtBytes(n) { return n >= 1e9 ? (n / 1e9).toFixed(1) + ' GB' : n >= 1e6 ? Math.max(1, Math.round(n / 1e6)) + ' MB' : Math.max(1, Math.round(n / 1e3)) + ' kB'; }
+  function periods(n) { return n + (n === 1 ? ' period' : ' periods') + ' of 5 minutes'; }
+  var STATE_TEXT = { running: 'Importing', done: 'Done', 'done-with-errors': 'Done, with problems', stopped: 'Stopped', error: 'Failed' };
+
+  function drawImport() {
+    clearTimeout(importTimer);
+    importRoot.textContent = '';
+    var badge = document.getElementById('influx-import-badge');
+    var imp = data.import || { state: 'idle' };
+    if (badge) {
+      badge.hidden = imp.state === 'idle';
+      badge.className = 'st-badge ' + (imp.state === 'done' ? 'is-ok' : imp.state === 'running' ? 'is-warn' : 'is-error');
+      badge.textContent = STATE_TEXT[imp.state] || '';
+    }
+    if (!data.configured) { importRoot.appendChild(el('p', { class: 'st-help' }, 'Save a connection first.')); return; }
+    if (!data.mapping.length) { importRoot.appendChild(el('p', { class: 'st-help' }, 'Add the metrics to read first.')); return; }
+    importRoot.appendChild(el('p', { class: 'st-help' }, 'Copies each mapped metric\'s history into Epilykos at 5-minute detail, so charts, daily totals, reports and savings cover it. Readings Epilykos already has are never replaced, so running it again is safe. It runs in the background; you can leave this page.'));
+
+    if (imp.state !== 'idle') {
+      var line = el('p', { class: 'st-help', role: 'status' });
+      var pct = Math.round((imp.progress || 0) * 100);
+      line.textContent = imp.state === 'running' ? 'Importing… ' + pct + '%'
+        : (STATE_TEXT[imp.state] || imp.state) + (imp.finishedAt ? ' on ' + fmtDate(imp.finishedAt) : '') + (imp.error ? ': ' + imp.error : '.');
+      importRoot.appendChild(line);
+      if (imp.state === 'running') {
+        var bar = el('progress', { max: '100', 'aria-label': 'Import progress' }); bar.value = pct;
+        importRoot.appendChild(bar);
+      }
+      var list = el('ul', { class: 'st-help' });
+      (imp.metrics || []).forEach(function (m) {
+        list.appendChild(el('li', {}, m.metric + ': ' + (m.error ? 'not imported (' + m.error + ')' : periods(m.buckets) + (m.skipped ? ', ' + m.skipped + ' already there' : '') + (m.done ? '' : ' so far'))));
+      });
+      importRoot.appendChild(list);
+    }
+
+    var actions = el('div', { class: 'st-health-actions' });
+    if (imp.state === 'running') {
+      var stop = el('button', { type: 'button', class: 'st-btn' }, 'Stop');
+      stop.addEventListener('click', function () {
+        stop.disabled = true;
+        api('/import/stop', {}).then(function (d) { data = d; drawImport(); }).catch(function (e) { toast(e.message, 'error'); stop.disabled = false; });
+      });
+      actions.appendChild(stop);
+      importTimer = setTimeout(function () { if (location.hash === '#influxdb') api('').then(function (d) { data = d; drawImport(); }).catch(function () {}); }, 3000);
+    } else {
+      var check = el('button', { type: 'button', class: 'st-btn st-btn-primary' }, imp.state === 'idle' ? 'Check what would be imported' : 'Import again');
+      check.addEventListener('click', function () {
+        check.disabled = true;
+        api('/import/plan', {}).then(function (p) { drawPlan(p); }).catch(function (e) { toast(e.message, 'error'); }).then(function () { check.disabled = false; });
+      });
+      actions.appendChild(check);
+    }
+    importRoot.appendChild(actions);
+    var planBox = el('div', { id: 'influx-plan' });
+    importRoot.appendChild(planBox);
+  }
+
+  function drawPlan(p) {
+    var box = document.getElementById('influx-plan');
+    box.textContent = '';
+    var list = el('ul', { class: 'st-help' });
+    p.metrics.forEach(function (m) {
+      list.appendChild(el('li', {}, m.metric + ': ' + (m.error ? 'cannot be read (' + m.error + ')' : m.from === null ? 'no readings' : 'from ' + fmtDate(m.from) + ', up to ' + periods(m.buckets))));
+    });
+    box.appendChild(list);
+    box.appendChild(el('p', { class: 'st-help' }, 'Room needed in the Epilykos database: up to about ' + fmtBytes(p.bytes) + '.'));
+    var go = el('button', { type: 'button', class: 'st-btn st-btn-primary' }, 'Start the import');
+    go.disabled = !p.buckets;
+    go.addEventListener('click', function () {
+      go.disabled = true;
+      api('/import/start', {}).then(function (d) { data = d; drawImport(); toast('Import started'); }).catch(function (e) { toast(e.message, 'error'); go.disabled = false; });
+    });
+    var actions = el('div', { class: 'st-health-actions' }); actions.appendChild(go); box.appendChild(actions);
+  }
+
   // ── Writing new readings ────────────────────────────────────────────
   function drawWrite() {
     writeRoot.textContent = '';
@@ -274,7 +353,7 @@
 
   function drawAll() {
     datalist('influx-metric-list', data.metrics);
-    drawConnection(); drawMapping(); drawWrite();
+    drawConnection(); drawMapping(); drawImport(); drawWrite();
     var badge = document.getElementById('influx-badge');
     if (badge) { badge.hidden = !data.configured; badge.className = 'st-badge is-ok'; badge.textContent = 'Set up'; }
   }
