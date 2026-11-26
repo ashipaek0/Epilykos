@@ -803,7 +803,11 @@ let metricBuffer = [];
 let metricFlushTimer = null;
 const flushListeners = new Set();
 
-/** Call `fn` after a batch of readings is stored. Returns a function that removes it. */
+/**
+ * Call `fn(count, rows)` after a batch of readings is stored. `rows` is the stored batch
+ * ({ metric, value, value_text, value_type, unit, timestamp (s) }); a listener must not change it.
+ * Returns a function that removes the listener.
+ */
 function onMetricsFlushed(fn) {
   flushListeners.add(fn);
   return () => flushListeners.delete(fn);
@@ -885,7 +889,7 @@ function flushMetrics() {
   metricBuffer = []; // synchronous transaction: keep the batch intact on failure
   if (flushListeners.size) {
     // After the flush returns, so a listener never slows or breaks the write.
-    setImmediate(() => { for (const fn of flushListeners) { try { fn(batch.length); } catch (_) { /* a listener must not break storage */ } } });
+    setImmediate(() => { for (const fn of flushListeners) { try { fn(batch.length, batch); } catch (_) { /* a listener must not break storage */ } } });
   }
   return batch.length;
 }
