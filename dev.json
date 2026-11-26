@@ -1,25 +1,44 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "45871304409.1",
-    "version": "1.3.12-dev+bb34b42",
-    "commit": "bb34b42c356e08a3e3afa659caecbaa9c76a30f5",
-    "digest": "sha256:542fb637861d057b0996f069e6248f036d4a290df8473c2256cdd5c29130b936",
+    "buildId": "45874298891.1",
+    "version": "1.3.12-dev+e878c46",
+    "commit": "e878c46303ab84f6e88b1100e2be2d1b25934e68",
+    "digest": "sha256:9f7b0111fc215a579b801e30b428c87d6ab3dffd425fc13d20bf151b14a4d98d",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-26T17:52:23Z",
+    "builtAt": "2026-11-26T18:14:44Z",
     "kind": "release",
     "notes": [
-      "InfluxDB 3/7: Settings → InfluxDB (connection, metrics, writing) (#455)"
+      "InfluxDB 4/7: import history (#456)"
     ],
     "attestation": {
-      "id": "72787389",
-      "url": "https://github.com/ashipaek0/Epilykos/attestations/72787389",
+      "id": "72794368",
+      "url": "https://github.com/ashipaek0/Epilykos/attestations/72794368",
       "repository": "ashipaek0/Epilykos",
       "signer_workflow": "ashipaek0/Epilykos/.github/workflows/docker-build-dev.yml@refs/heads/dev",
-      "subject": "irunmole/epilykos@sha256:542fb637861d057b0996f069e6248f036d4a290df8473c2256cdd5c29130b936"
+      "subject": "irunmole/epilykos@sha256:9f7b0111fc215a579b801e30b428c87d6ab3dffd425fc13d20bf151b14a4d98d"
     }
   },
   "history": [
+    {
+      "buildId": "45874298891.1",
+      "version": "1.3.12-dev+e878c46",
+      "commit": "e878c46303ab84f6e88b1100e2be2d1b25934e68",
+      "digest": "sha256:9f7b0111fc215a579b801e30b428c87d6ab3dffd425fc13d20bf151b14a4d98d",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-26T18:14:44Z",
+      "kind": "release",
+      "notes": [
+        "InfluxDB 4/7: import history (#456)"
+      ],
+      "attestation": {
+        "id": "72794368",
+        "url": "https://github.com/ashipaek0/Epilykos/attestations/72794368",
+        "repository": "ashipaek0/Epilykos",
+        "signer_workflow": "ashipaek0/Epilykos/.github/workflows/docker-build-dev.yml@refs/heads/dev",
+        "subject": "irunmole/epilykos@sha256:9f7b0111fc215a579b801e30b428c87d6ab3dffd425fc13d20bf151b14a4d98d"
+      }
+    },
     {
       "buildId": "45871304409.1",
       "version": "1.3.12-dev+bb34b42",
@@ -418,18 +437,6 @@
       "kind": "release",
       "notes": [
         "Automations page: use Settings' own look (#425)"
-      ]
-    },
-    {
-      "buildId": "45369497031.1",
-      "version": "1.3.9-dev+64d8827",
-      "commit": "64d88273942933a1204b3b261dbfd95387b1e9a7",
-      "digest": "sha256:9b4a1cc2c2d1211f9852f5d0788d263be56cd8bcc5070382a1f84986acd1732b",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-24T09:54:00Z",
-      "kind": "release",
-      "notes": [
-        "Automations page: no placeholder text in the fields (#424)"
       ]
     }
   ]
