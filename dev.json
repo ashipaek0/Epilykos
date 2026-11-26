@@ -1,25 +1,44 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "45874298891.1",
-    "version": "1.3.12-dev+e878c46",
-    "commit": "e878c46303ab84f6e88b1100e2be2d1b25934e68",
-    "digest": "sha256:9f7b0111fc215a579b801e30b428c87d6ab3dffd425fc13d20bf151b14a4d98d",
+    "buildId": "45875322032.1",
+    "version": "1.3.12-dev+4c0ab51",
+    "commit": "4c0ab51ac64fd182d1e9305ecd6c5e378e752739",
+    "digest": "sha256:cb615e6f5f30afae4eca80bd6228ba7d91ed68dc93722fc09a3f715878544be0",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-26T18:14:44Z",
+    "builtAt": "2026-11-26T18:22:13Z",
     "kind": "release",
     "notes": [
-      "InfluxDB 4/7: import history (#456)"
+      "InfluxDB 5/7: write new readings (#457)"
     ],
     "attestation": {
-      "id": "72794368",
-      "url": "https://github.com/ashipaek0/Epilykos/attestations/72794368",
+      "id": "72796371",
+      "url": "https://github.com/ashipaek0/Epilykos/attestations/72796371",
       "repository": "ashipaek0/Epilykos",
       "signer_workflow": "ashipaek0/Epilykos/.github/workflows/docker-build-dev.yml@refs/heads/dev",
-      "subject": "irunmole/epilykos@sha256:9f7b0111fc215a579b801e30b428c87d6ab3dffd425fc13d20bf151b14a4d98d"
+      "subject": "irunmole/epilykos@sha256:cb615e6f5f30afae4eca80bd6228ba7d91ed68dc93722fc09a3f715878544be0"
     }
   },
   "history": [
+    {
+      "buildId": "45875322032.1",
+      "version": "1.3.12-dev+4c0ab51",
+      "commit": "4c0ab51ac64fd182d1e9305ecd6c5e378e752739",
+      "digest": "sha256:cb615e6f5f30afae4eca80bd6228ba7d91ed68dc93722fc09a3f715878544be0",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-26T18:22:13Z",
+      "kind": "release",
+      "notes": [
+        "InfluxDB 5/7: write new readings (#457)"
+      ],
+      "attestation": {
+        "id": "72796371",
+        "url": "https://github.com/ashipaek0/Epilykos/attestations/72796371",
+        "repository": "ashipaek0/Epilykos",
+        "signer_workflow": "ashipaek0/Epilykos/.github/workflows/docker-build-dev.yml@refs/heads/dev",
+        "subject": "irunmole/epilykos@sha256:cb615e6f5f30afae4eca80bd6228ba7d91ed68dc93722fc09a3f715878544be0"
+      }
+    },
     {
       "buildId": "45874298891.1",
       "version": "1.3.12-dev+e878c46",
@@ -425,18 +444,6 @@
       "kind": "release",
       "notes": [
         "Controls page: use Settings' own look (#426)"
-      ]
-    },
-    {
-      "buildId": "45374946698.1",
-      "version": "1.3.9-dev+874db17",
-      "commit": "874db17a757d831656ec054eb95cc8f0292ceb2f",
-      "digest": "sha256:5f243ffdaf605bdc38f90a8ea77b1138da77ce5eefc1d034977f1b4e0a2d0897",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-24T10:27:35Z",
-      "kind": "release",
-      "notes": [
-        "Automations page: use Settings' own look (#425)"
       ]
     }
   ]
