@@ -1,25 +1,44 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "45875788953.1",
-    "version": "1.3.12-dev+f6fe608",
-    "commit": "f6fe608878255203c1fbb442cb34303ad2b0e42d",
-    "digest": "sha256:2f59e1df89506c74d4823001412634603000ae24d170f7343343a66619c462a5",
+    "buildId": "45876220344.1",
+    "version": "1.3.12-dev+5d51ab0",
+    "commit": "5d51ab0a892b570dbb6edcfa4a92e01f691c3da3",
+    "digest": "sha256:eb6a91fc470a1311add97f225ed576531559047ad4bdc37d7c4b053e150f5892",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-26T18:25:44Z",
+    "builtAt": "2026-11-26T18:29:03Z",
     "kind": "release",
     "notes": [
-      "InfluxDB 6/7: fill gaps after a restart and once a day (#458)"
+      "InfluxDB 7/7: docs, in-app help and attack-suite checks (#459)"
     ],
     "attestation": {
-      "id": "72797277",
-      "url": "https://github.com/ashipaek0/Epilykos/attestations/72797277",
+      "id": "72799233",
+      "url": "https://github.com/ashipaek0/Epilykos/attestations/72799233",
       "repository": "ashipaek0/Epilykos",
       "signer_workflow": "ashipaek0/Epilykos/.github/workflows/docker-build-dev.yml@refs/heads/dev",
-      "subject": "irunmole/epilykos@sha256:2f59e1df89506c74d4823001412634603000ae24d170f7343343a66619c462a5"
+      "subject": "irunmole/epilykos@sha256:eb6a91fc470a1311add97f225ed576531559047ad4bdc37d7c4b053e150f5892"
     }
   },
   "history": [
+    {
+      "buildId": "45876220344.1",
+      "version": "1.3.12-dev+5d51ab0",
+      "commit": "5d51ab0a892b570dbb6edcfa4a92e01f691c3da3",
+      "digest": "sha256:eb6a91fc470a1311add97f225ed576531559047ad4bdc37d7c4b053e150f5892",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-26T18:29:03Z",
+      "kind": "release",
+      "notes": [
+        "InfluxDB 7/7: docs, in-app help and attack-suite checks (#459)"
+      ],
+      "attestation": {
+        "id": "72799233",
+        "url": "https://github.com/ashipaek0/Epilykos/attestations/72799233",
+        "repository": "ashipaek0/Epilykos",
+        "signer_workflow": "ashipaek0/Epilykos/.github/workflows/docker-build-dev.yml@refs/heads/dev",
+        "subject": "irunmole/epilykos@sha256:eb6a91fc470a1311add97f225ed576531559047ad4bdc37d7c4b053e150f5892"
+      }
+    },
     {
       "buildId": "45875788953.1",
       "version": "1.3.12-dev+f6fe608",
@@ -439,18 +458,6 @@
       "kind": "release",
       "notes": [
         "Automations editor: put each line on three even columns (#428)"
-      ]
-    },
-    {
-      "buildId": "45390074966.1",
-      "version": "1.3.9-dev+6158c39",
-      "commit": "6158c390f644b405ffebdc5f809eb6dad93fc1a5",
-      "digest": "sha256:509790fa582cd964ddfcca6fb7f15537a6a8ef741a075b9f83381cd47cdc3f75",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-24T12:05:13Z",
-      "kind": "release",
-      "notes": [
-        "Automations editor: one line per condition and action (#427)"
       ]
     }
   ]
