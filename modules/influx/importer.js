@@ -46,6 +46,8 @@ function scaleBucket(b, scale) {
  * @param {(ms: number) => Promise} [deps.sleep]
  * @param {(day: number) => string} [deps.localDay] seconds → YYYY-MM-DD in local time
  * @param {object} [deps.log]
+ * @param {string} [deps.stateKey]                 where in influx_state its progress is kept ('import', or 'gap' for the
+ *                                                  filling of gaps, so that never replaces the user's import's status)
  */
 function createImporter(deps) {
   const now = deps.now || (() => Math.floor(Date.now() / 1000));
@@ -55,16 +57,25 @@ function createImporter(deps) {
   let running = null;      // the promise of the import in progress
   let stopMode = null;     // 'stop' (the user stopped it) or 'pause' (a restore or shutdown: it carries on later)
 
-  const importState = () => (deps.loadState() || {}).import || null;
-  function saveImport(imp) { deps.saveState({ ...(deps.loadState() || {}), import: imp }); }
+  const key = deps.stateKey || 'import';
+  const importState = () => (deps.loadState() || {})[key] || null;
+  function saveImport(imp) { deps.saveState({ ...(deps.loadState() || {}), [key]: imp }); }
 
-  /** What an import would do: per metric, its first reading and how many 5-minute buckets that is at most. */
-  async function plan() {
+  /**
+   * What an import would do: per metric, its first reading and how many 5-minute buckets that is at most.
+   * With `since` (seconds), every metric from then on instead, without asking for first readings (filling a gap).
+   */
+  async function plan({ since } = {}) {
     const client = deps.getClient();
     const until = bucketOf(now());
     const metrics = [];
     for (const row of deps.loadMapping()) {
       const series = { measurement: row.measurement, field: row.field, tags: row.tags };
+      if (Number.isFinite(since)) {
+        const from = Math.min(bucketOf(since), until);
+        metrics.push({ metric: row.metric, from, buckets: Math.ceil((until - from) / BUCKET_SECONDS) });
+        continue;
+      }
       try {
         const first = await client.first(series);
         const from = first === null ? null : bucketOf(first);
@@ -135,7 +146,7 @@ function createImporter(deps) {
     imp.finishedAt = now();
     saveImport(imp);
     const totals = Object.values(imp.metrics).reduce((t, m) => ({ b: t.b + m.buckets + m.raw, s: t.s + m.skipped }), { b: 0, s: 0 });
-    log.info(`[influx] import finished: ${totals.b} buckets stored, ${totals.s} already there`);
+    if (key !== 'gap') log.info(`[influx] import finished: ${totals.b} buckets stored, ${totals.s} already there`);
     return imp;
   }
 
