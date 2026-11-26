@@ -1,9 +1,9 @@
 'use strict';
 /**
- * The running InfluxDB link, one per process: the history import (importer.js). start() and stop() never throw; they are
- * called at startup, around a backup restore and at shutdown.
+ * The running InfluxDB link, one per process: the history import (importer.js) and the writer of new readings
+ * (writer.js). start() and stop() never throw; they are called at startup, around a backup restore and at shutdown.
  *
- * config influx_state: { connectedAt (s, when the connection was first saved), import: { … } }
+ * config influx_state: { connectedAt (s, when the connection was first saved), import: { … }, write: { … } }
  *
  * @module influx/service
  */
@@ -13,6 +13,7 @@ const { getConfig, setConfig, getDb } = require('../database');
 const { createInfluxClient } = require('./client');
 const settings = require('./settings');
 const { createImporter } = require('./importer');
+const { createWriter } = require('./writer');
 
 const STATE_KEY = 'influx_state';
 
@@ -48,12 +49,36 @@ function getImporter() {
   return importer;
 }
 
+let writer = null;
+function getWriter() {
+  if (!writer) {
+    writer = createWriter({
+      getClient: () => {
+        const conn = settings.loadConnection();
+        return settings.isConfigured(conn) ? createInfluxClient(conn) : null;
+      },
+      getDb,
+      loadWrite: settings.loadWrite,
+      mappedMetrics: () => settings.loadMapping().map(r => r.metric),
+      loadState, saveState,
+      isCurrent: () => require('../databaseWork').isCurrent(),
+      log: logger,
+    });
+  }
+  return writer;
+}
+
 function start() {
+  try { getWriter().start(); } catch (e) { logger.warn(`InfluxDB: the writer did not start: ${e.message}`); }
   try { getImporter().resume(); } catch (e) { logger.warn(`InfluxDB: could not carry on with the import: ${e.message}`); }
 }
 
 async function stop() {
+  try { if (writer) writer.stop(); } catch (e) { logger.warn(`InfluxDB: the writer did not stop: ${e.message}`); }
   try { if (importer) await importer.pause(); } catch (e) { logger.warn(`InfluxDB: could not pause: ${e.message}`); }
 }
 
-module.exports = { STATE_KEY, loadState, saveState, noteConnected, getImporter, start, stop, setImporterForTests: i => { importer = i; } };
+module.exports = {
+  STATE_KEY, loadState, saveState, noteConnected, getImporter, getWriter, start, stop,
+  setImporterForTests: i => { importer = i; }, setWriterForTests: w => { writer = w; },
+};
