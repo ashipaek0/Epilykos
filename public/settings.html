@@ -770,6 +770,24 @@
                 <p class="help-more"><a class="help-link" href="https://epilykos.ashipaek0.com.ng/data-sources/tuya/" target="_blank" rel="noopener">More in the Epilykos Wiki ↗</a></p>
               </div>
             </details>
+            <!-- InfluxDB -->
+            <details class="help-sub">
+              <summary class="help-sub-summary">InfluxDB (your existing database)</summary>
+              <div class="help-sub-body">
+                <p>Shows the history you already keep in InfluxDB 1.x or 2.x on the dashboard, and writes new readings to it.</p>
+                <div class="help-checklist">
+                  <div class="help-checklist-item"><span class="help-badge must">Required</span> Its address on your network, e.g. <code>http://192.168.1.60:8086</code></div>
+                  <div class="help-checklist-item"><span class="help-badge must">Required</span> 2.x: organisation, bucket and a token that can read and write it. 1.x: database, and the user name and password if it has them</div>
+                </div>
+                <ol>
+                  <li><a class="help-link" href="#influxdb">InfluxDB</a>: enter the connection and save</li>
+                  <li>Under <em>Metrics to read</em>, say where each metric is. <em>Find Home Assistant sensors</em> fills this in for Home Assistant's InfluxDB integration</li>
+                  <li><em>Import history</em>: check, then start. It runs in the background</li>
+                </ol>
+                <p>New readings go into the <code>epilykos</code> measurement with a <code>metric</code> tag. Readings Epilykos already has are never replaced.</p>
+                <p class="help-more"><a class="help-link" href="https://epilykos.ashipaek0.com.ng/settings/influxdb/" target="_blank" rel="noopener">More in the Epilykos Wiki ↗</a></p>
+              </div>
+            </details>
           </div>
         </details>
 
