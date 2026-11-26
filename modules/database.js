@@ -625,6 +625,7 @@ const SECRET_LABELS = {
   mqtt_devices: 'MQTT device passwords',
   tuya_devices: 'Tuya device keys',
   cloudflare_tunnel: 'Cloudflare Tunnel token',
+  influx_connection: 'InfluxDB password or token',
   notification_channels: 'Notification channel credentials',
   notification_devices: 'Notification devices (subscribe again)',
   notification_vapid: 'Web push keys (made again automatically)'
