@@ -342,6 +342,13 @@
     tl.appendChild(cb); tl.appendChild(el('span', { class: 'slider' }));
     tw.appendChild(tl); tw.appendChild(el('label', { for: 'influx-write-all' }, 'Send every reading, not only the mapped metrics'));
     row.appendChild(tw); writeRoot.appendChild(row);
+    var ws = data.writing || {};
+    var since = data.connectedAt ? 'Readings from ' + new Date(data.connectedAt * 1000).toLocaleString() + ' on are written. ' : '';
+    var stateLine = ws.state === 'error' ? 'Not writing just now: ' + (ws.lastError || 'InfluxDB did not answer') + '. Nothing is lost; it catches up once InfluxDB answers.'
+      : ws.state === 'idle' ? 'Nothing to write: no metric is mapped, and "send every reading" is off.'
+      : ws.state === 'ok' ? ws.written + (ws.written === 1 ? ' reading' : ' readings') + ' written' + (ws.through ? ', up to ' + new Date(ws.through * 1000).toLocaleString() : '') + '.' + (ws.lastError ? ' Some were refused: ' + ws.lastError : '')
+      : 'Starting…';
+    writeRoot.appendChild(el('p', { class: 'st-help', role: 'status', id: 'influx-write-status' }, since + stateLine));
     var save = el('button', { type: 'button', class: 'st-btn st-btn-primary' }, 'Save');
     save.addEventListener('click', function () {
       save.disabled = true;

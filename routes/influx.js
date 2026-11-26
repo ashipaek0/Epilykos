@@ -37,7 +37,7 @@ function view() {
   const state = service.loadState();
   return {
     connection: s.connectionView(conn), configured: s.isConfigured(conn), mapping: s.loadMapping(), write: s.loadWrite(), metrics: knownMetrics(),
-    connectedAt: state.connectedAt || null, import: service.getImporter().status(),
+    connectedAt: state.connectedAt || null, import: service.getImporter().status(), writing: service.getWriter().status(),
   };
 }
 
