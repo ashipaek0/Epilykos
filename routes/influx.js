@@ -11,6 +11,9 @@
  *   POST   /suggest-ha        mapping rows for Home Assistant's InfluxDB integration layout
  *   POST   /mapping           save the mapping
  *   POST   /write-settings    save where new readings are written
+ *   POST   /import/plan       what an import of the mapped metrics' history would read, and the room it needs
+ *   POST   /import/start      start it (it runs in the background; GET / shows its progress)
+ *   POST   /import/stop       stop it after the week in progress
  *
  * @module routes/influx
  */
@@ -18,6 +21,7 @@ const express = require('express');
 const { getConfig, setConfig, getDb } = require('../modules/database');
 const { createInfluxClient, InfluxError } = require('../modules/influx/client');
 const s = require('../modules/influx/settings');
+const service = require('../modules/influx/service');
 
 const router = express.Router();
 const fail = (res, status, message) => res.status(status).json({ error: message });
@@ -30,7 +34,11 @@ function knownMetrics() {
 
 function view() {
   const conn = s.loadConnection();
-  return { connection: s.connectionView(conn), configured: s.isConfigured(conn), mapping: s.loadMapping(), write: s.loadWrite(), metrics: knownMetrics() };
+  const state = service.loadState();
+  return {
+    connection: s.connectionView(conn), configured: s.isConfigured(conn), mapping: s.loadMapping(), write: s.loadWrite(), metrics: knownMetrics(),
+    connectedAt: state.connectedAt || null, import: service.getImporter().status(),
+  };
 }
 
 /** A client for `conn`, or a 400 sent and null returned. Tests may replace `router.clientFor`. */
@@ -50,6 +58,7 @@ router.post('/connection', (req, res) => {
   const next = s.mergeConnection(body(req));
   if (!clientOr400(res, next)) return;   // the same checks a test makes, before anything is saved
   setConfig(s.CONNECTION_KEY, JSON.stringify(next));
+  service.noteConnected();
   res.json(view());
 });
 
@@ -109,6 +118,28 @@ router.post('/mapping', (req, res) => {
 
 router.post('/write-settings', (req, res) => {
   setConfig(s.WRITE_KEY, JSON.stringify(s.normaliseWrite(body(req))));
+  res.json(view());
+});
+
+router.post('/import/plan', async (req, res) => {
+  if (!savedClient(res)) return;
+  if (!s.loadMapping().length) return fail(res, 400, 'Add the metrics to read first');
+  try { res.json(await service.getImporter().plan()); } catch (e) { influxFailure(res, e); }
+});
+
+router.post('/import/start', async (req, res) => {
+  if (!savedClient(res)) return;
+  const importer = service.getImporter();
+  if (importer.isRunning()) return fail(res, 409, 'An import is already running');
+  if (!s.loadMapping().length) return fail(res, 400, 'Add the metrics to read first');
+  try {
+    importer.start(await importer.plan());
+    res.json(view());
+  } catch (e) { e instanceof InfluxError ? influxFailure(res, e) : fail(res, 400, e.message); }
+});
+
+router.post('/import/stop', async (req, res) => {
+  await service.getImporter().stop();
   res.json(view());
 });
 
