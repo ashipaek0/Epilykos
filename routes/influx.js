@@ -38,6 +38,7 @@ function view() {
   return {
     connection: s.connectionView(conn), configured: s.isConfigured(conn), mapping: s.loadMapping(), write: s.loadWrite(), metrics: knownMetrics(),
     connectedAt: state.connectedAt || null, import: service.getImporter().status(), writing: service.getWriter().status(),
+    syncedThrough: state.syncedThrough || null,
   };
 }
 
@@ -131,6 +132,7 @@ router.post('/import/start', async (req, res) => {
   if (!savedClient(res)) return;
   const importer = service.getImporter();
   if (importer.isRunning()) return fail(res, 409, 'An import is already running');
+  await service.getGapImporter().stop();   // the user's import covers what a fill of gaps would
   if (!s.loadMapping().length) return fail(res, 400, 'Add the metrics to read first');
   try {
     importer.start(await importer.plan());

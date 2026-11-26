@@ -287,6 +287,9 @@
       importRoot.appendChild(list);
     }
 
+    if (data.syncedThrough && imp.state !== 'running') {
+      importRoot.appendChild(el('p', { class: 'st-help' }, 'Gaps are filled from InfluxDB after a restart and once a day: up to ' + new Date(data.syncedThrough * 1000).toLocaleString() + ' so far.'));
+    }
     var actions = el('div', { class: 'st-health-actions' });
     if (imp.state === 'running') {
       var stop = el('button', { type: 'button', class: 'st-btn' }, 'Stop');
