@@ -550,6 +550,7 @@ app.use('/api/notices', isAuthenticated, require('./routes/notices'));
 app.use('/api/setup-health', isAuthenticated, require('./routes/setupHealth'));   // Settings → Health
 app.use('/api/presets', isAuthenticated, require('./routes/presets'));   // ready-made dashboards for the layout editor
 app.use('/api/ha-discovery', isAuthenticated, require('./routes/haDiscovery'));   // Settings → Home Assistant
+app.use('/api/influx', isAuthenticated, require('./routes/influx'));               // Settings → InfluxDB
 app.use('/api/prepaid', require('./routes/prepaid'));   // the balance: public unless private; changes and settings: signed in
 
 app.post('/api/wizard/reset', isAuthenticated, (req, res) => {
