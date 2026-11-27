@@ -114,11 +114,20 @@ function renderSummary(card, data, cfg) {
   if (valueEl) valueEl.firstChild.textContent = `${remaining != null ? fmtKwh(remaining) : fmtKwh(total)}`;
   const remainingEl = q('.fc-today-remaining');
   if (remainingEl) remainingEl.hidden = remaining == null;
+  // Expected today = produced so far + the forecast for the rest of the day, so the three figures add up. The day's
+  // whole forecast (which counts the hours already gone at their forecast, not at what was made) is shown beside it
+  // when the two differ.
+  const produced = actual != null && actual > 0 ? actual : null;
+  const expected = produced != null && remaining != null ? produced + remaining : total;
   const sub = [];
-  if (actual != null && actual > 0) sub.push(`${fmtNum(actual, 1)} produced`);
-  if (total != null) sub.push(`${fmtNum(total, 1)} expected`);
+  if (produced != null) sub.push(`${fmtNum(produced, 1)} produced`);
+  if (expected != null) sub.push(`${fmtNum(expected, 1)} expected`);
+  if (total != null && expected != null && fmtNum(total, 1) !== fmtNum(expected, 1)) sub.push(`forecast was ${fmtNum(total, 1)}`);
   const subEl = q('.fc-today-sub');
-  if (subEl) subEl.textContent = sub.join(' · ');
+  if (subEl) {
+    subEl.textContent = sub.join(' · ');
+    subEl.title = produced != null && remaining != null ? 'Expected = produced so far + the forecast for the rest of today' : '';
+  }
   const prog = q('.fc-progress');
   if (prog) {
     const denom = (actual || 0) + (remaining || 0);

@@ -114,6 +114,8 @@ const path = require('node:path');
   await forecast.updateForecast(push(4.9));
   assert.equal(calls.length, 0, 'later pushes make no request');
   assert.match(summary._text['.fc-today-sub'] || '', /4\.9 produced/, 'the forecast card shows the new figure from the push');
+  // The three figures add up: expected = produced + the forecast still to come (2 kWh); the day's whole forecast (20) beside it.
+  assert.match(summary._text['.fc-today-sub'] || '', /^4\.9 produced · 6\.9 expected · forecast was 20(\.0)?$/, summary._text['.fc-today-sub']);
   assert.equal(pvNodes['pvt-generated-b2'] && pvNodes['pvt-generated-b2'].textContent, '4.9 kWh', 'PV Today shows it too');
   assert.match(pvNodes['pvt-remaining-b2'].textContent, /^2\.0 kWh$/);
   console.log('ok - pushes update the produced figure with no request');
