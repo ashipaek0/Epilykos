@@ -332,6 +332,43 @@ function encodeQuery(cmd, device, profile) {
   return Buffer.from(cmd.query || '');
 }
 
+// ── Computed fields ─────────────────────────────────────────────────────
+
+/**
+ * Fields a profile works out from the others, for a value the device does not report (Phocos Any-Grid has no AC
+ * input power): a command with `computed: true` and no query, whose fields each have `terms`, signed products of other
+ * fields of the same poll by their profile name: { sign: 1 | -1, of: ['battery_voltage', 'battery_charge_current'] }.
+ * A computed field can use the ones above it. It is mapped like any other field (`<command>:<index>`), and works from
+ * every reading of the poll, mapped or not. A field whose inputs are not all there is left out.
+ * @param {object} profile
+ * @param {Record<string, number>} raw profile field name → value, from every reply of this poll
+ * @param {Record<string, string>|null} mappings metric name → `<command>:<index>`, or null for the profile's names
+ * @returns {Record<string, number>} metric name → value
+ */
+function computeFields(profile, raw, mappings) {
+  const out = {};
+  const values = { ...raw };
+  const keyToMetric = mappings ? Object.fromEntries(Object.entries(mappings).map(([metric, key]) => [key, metric])) : null;
+  for (const cmd of profile.commands || []) {
+    if (!cmd.computed) continue;
+    for (const f of cmd.fields || []) {
+      if (!Array.isArray(f.terms) || !f.terms.length) continue;
+      let total = 0, ok = true;
+      for (const term of f.terms) {
+        const factors = (term.of || []).map(name => values[name]);
+        if (!factors.length || !factors.every(v => typeof v === 'number' && Number.isFinite(v))) { ok = false; break; }
+        total += (term.sign === -1 ? -1 : 1) * factors.reduce((a, b) => a * b, 1);
+      }
+      if (!ok) continue;
+      const value = Math.round(total * 10) / 10;
+      values[f.metric] = value;
+      const metric = keyToMetric ? keyToMetric[`${cmd.name}:${f.index}`] : f.metric;
+      if (metric !== undefined) out[metric] = value;
+    }
+  }
+  return out;
+}
+
 // ── Poll Orchestration ──────────────────────────────────────────────────
 
 async function pollRs232() {
@@ -411,6 +448,8 @@ async function pollQueryDevice(device, profile) {
   const port = await openSerialPort(device);
   try {
     const results = {};
+    const hasComputed = (profile.commands || []).some(c => c.computed);
+    const raw = {};   // profile field name → value, every reply of this poll (computed fields work from these)
     const count = pollCounts.get(device.name) || 0;
     pollCounts.set(device.name, count + 1);
 
@@ -422,6 +461,7 @@ async function pollQueryDevice(device, profile) {
       const stateKey = `${device.name}|${cmd.name}`;
       const state = commandStates.get(stateKey) || {};
       commandStates.set(stateKey, state);
+      if (cmd.computed) continue;   // worked out below, from the replies
       if (!commandDue(cmd, count, state, device.mappings)) continue;
       const queryBuffer = encodeQuery(cmd, device, profile);
       if (queryBuffer.length === 0) continue;
@@ -429,6 +469,7 @@ async function pollQueryDevice(device, profile) {
       try {
         const rawResponse = await queryDevice(port, queryBuffer, profile, parseInt(device.timeout) || 5000);
         parsed = decodeResponse(rawResponse, cmd, profile, device.mappings);
+        if (hasComputed) Object.assign(raw, decodeResponse(rawResponse, cmd, profile, null));
       } catch (err) {
         if (!cmd.optional) throw err;
         backOff(cmd, count, state);
@@ -439,6 +480,7 @@ async function pollQueryDevice(device, profile) {
       if (cmd.absentWhenZero !== undefined && !Object.keys(parsed).length) backOff(cmd, count, state);
       Object.assign(results, parsed);
     }
+    if (hasComputed) Object.assign(results, computeFields(profile, raw, device.mappings));
 
     // Write to database — use type detection
     const now = Math.floor(Date.now() / 1000);
@@ -937,6 +979,7 @@ const executeRs232ProfileAction = executeRS232Action;
 
 module.exports = {
   loadRs232Profiles,
+  computeFields,
   pollRs232,
   testRs232Connection,
   getAvailablePorts,

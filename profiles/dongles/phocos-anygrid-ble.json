@@ -86,7 +86,7 @@
     {"name": "battery_net_current", "path": "derived.battery_net_current", "scale": 1, "unit": "A", "label": "Battery Net Current (+ charging)", "confidence": "derived"},
     {"name": "battery_net_power", "path": "derived.battery_net_power", "scale": 1, "unit": "W", "label": "Battery Net Power (+ charging)", "confidence": "derived"},
     {"name": "battery_charging_power", "path": "derived.battery_charging_power", "scale": 1, "unit": "W", "label": "Battery Charging Power", "confidence": "derived"},
-    {"name": "estimated_grid_power", "path": "derived.estimated_grid_power", "scale": 1, "unit": "W", "label": "Estimated Grid Power (+ import)", "confidence": "estimated"},
+    {"name": "estimated_grid_power", "path": "derived.estimated_grid_power", "scale": 1, "unit": "W", "label": "Grid Power (estimated, + import)", "confidence": "estimated"},
     {"name": "operating_mode_label", "path": "operating_mode_label", "scale": 1, "unit": "", "label": "Operating Mode Description", "confidence": "app_confirmed", "type": "string"},
     {"name": "fault_bytes", "path": "fault_bytes", "scale": 1, "unit": "", "label": "Fault Bytes (interpretation unverified)", "confidence": "unverified", "type": "string"},
     {"name": "rated_output_power", "path": "ratings.outputPower", "scale": 1, "unit": "W", "label": "Rated Output Power", "confidence": "app_confirmed", "record": "on_change"},
