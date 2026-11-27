@@ -9,6 +9,8 @@
  *   POST   /discover          what the saved connection holds: measurements, or for { measurement } its fields and tag
  *                             names, or for { measurement, tagKey } that tag's values
  *   POST   /suggest-ha        mapping rows for Home Assistant's InfluxDB integration layout
+ *   POST   /browse-series     every series with a numeric reading in the last 30 days (any layout, whatever wrote it),
+ *                             with its latest reading and a suggested metric name; { measurement } for just one
  *   POST   /mapping           save the mapping
  *   POST   /write-settings    save where new readings are written
  *   POST   /import/plan       what an import of the mapped metrics' history would read, and the room it needs
@@ -27,6 +29,7 @@ const router = express.Router();
 const fail = (res, status, message) => res.status(status).json({ error: message });
 const body = req => (req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {});
 const SUGGEST_MAX_MEASUREMENTS = 100;
+const BROWSE_MAX_SERIES = 2000;
 
 function knownMetrics() {
   try { return getDb().prepare('SELECT metric FROM latest_metrics ORDER BY metric').all().map(r => r.metric); } catch (_) { return []; }
@@ -107,6 +110,30 @@ router.post('/suggest-ha', async (req, res) => {
     }
     if (!found.length) return res.json({ rows: [], message: 'No Home Assistant series found: none has an entity_id tag and a value field.' });
     res.json({ rows: s.suggestHomeAssistant(found, knownMetrics()) });
+  } catch (e) { influxFailure(res, e); }
+});
+
+router.post('/browse-series', async (req, res) => {
+  const client = savedClient(res);
+  if (!client) return;
+  const { measurement } = body(req);
+  try {
+    const own = s.loadWrite().measurement;   // Epilykos's own readings: reading them back would go round in a circle
+    const measurements = (typeof measurement === 'string' && measurement ? [measurement] : await client.measurements())
+      .filter(m => m !== own).slice(0, SUGGEST_MAX_MEASUREMENTS);
+    const known = new Map(knownMetrics().map(m => [m.toLowerCase(), m]));
+    const series = [];
+    let truncated = false;
+    for (const m of measurements) {
+      for (const x of await client.series(m)) {
+        if (series.length >= BROWSE_MAX_SERIES) { truncated = true; break; }
+        const suggested = s.suggestMetricName(x);
+        const match = known.get(suggested);
+        series.push({ ...x, metric: match || suggested, known: Boolean(match) });
+      }
+      if (truncated) break;
+    }
+    res.json({ series, truncated, measurements: measurements.length });
   } catch (e) { influxFailure(res, e); }
 });
 

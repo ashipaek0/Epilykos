@@ -20,13 +20,13 @@ the user's system of record: everything new is written back to it.
 | `modules/influx/client.js` | One interface over 1.x and 2.x: `test`, `measurements`, `fieldKeys`, `tagKeys`, `tagValues`, `first`, `buckets` (5-minute mean/min/max/count computed by the server), `write`. Requests go through `safeFetch` with private addresses allowed; loopback, link-local and metadata addresses stay refused; redirects are not followed. |
 | `modules/influx/queries.js` | The InfluxQL and Flux text. Every user-chosen name is quoted and escaped (Flux `${` included). |
 | `modules/influx/lineProtocol.js` | Line protocol with the reference escaping; a point that cannot be written safely is refused. |
-| `modules/influx/settings.js` | `influx_connection` (secrets encrypted: `SECRET_FIELDS.influx_connection`), `influx_mapping`, `influx_write`; the Home Assistant layout suggestions. |
+| `modules/influx/settings.js` | `influx_connection` (secrets encrypted: `SECRET_FIELDS.influx_connection`), `influx_mapping`, `influx_write`; the Home Assistant layout suggestions and the metric names Browse series offers. |
 | `modules/historicalStore.js` | `storeHistoricalBatch`: older than 30 days into `metrics_5m`, newer into `metrics`; the dashboard's own readings win per metric and 5-minute bucket. |
 | `modules/influx/importer.js` | The import: a week per request, progress saved per week (`influx_state.import`), retries, skip a metric that cannot be read. |
 | `modules/influx/roleHistory.js` | After an import, the role history (`history_5m` older, `history` newer as five rows a minute apart) so every reader counts each imported 5 minutes in full. |
 | `modules/influx/writer.js` | New readings, read back from `metrics` in `(timestamp, metric)` order from a saved position (`influx_state.write`): nothing is lost while InfluxDB is down or Epilykos restarts. |
 | `modules/influx/service.js` | One per process: the writer, the import's resume, and the filling of gaps (a minute after startup, then daily; `influx_state.gap`, `syncedThrough`). Paused around a restore by `restoreLifecycle`. |
-| `routes/influx.js` | `/api/influx`, signed in. |
+| `routes/influx.js` | `/api/influx`, signed in. `POST /browse-series` lists every series with a number in the last 30 days, in any layout (client `series()`: Flux `last()` per series, InfluxQL `SELECT last(*) … GROUP BY *`), leaving out the measurement Epilykos writes to. |
 
 ## What is written
 

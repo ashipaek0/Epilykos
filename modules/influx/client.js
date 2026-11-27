@@ -121,7 +121,7 @@ function createInfluxClient(conf, { fetchImpl } = {}) {
     // Rows as objects keyed by column, across every series of the answer.
     const rows = [];
     for (const s of result.series || []) for (const v of s.values || []) {
-      const row = {};
+      const row = { _tags: s.tags || {} };   // the series' tags, when the query groups by them
       s.columns.forEach((c, j) => { row[c] = v[j]; });
       rows.push(row);
     }
@@ -175,6 +175,35 @@ function createInfluxClient(conf, { fetchImpl } = {}) {
     async tagValues(measurement, key) {
       return v2 ? names(await fx(flux.tagValues(conf.bucket, measurement, key)), '_value')
         : names(await ql(influxql.tagValues(measurement, key)), 'value');
+    },
+
+    /**
+     * Every series of `measurement` with a numeric reading in the last 30 days, one entry per field:
+     * [{ measurement, field, tags: { key: value }, last, time }], sorted. Text and true/false fields are left out.
+     */
+    async series(measurement) {
+      const out = [];
+      if (v2) {
+        const skip = new Set(['', 'result', 'table', '_start', '_stop', '_time', '_value', '_field', '_measurement']);
+        for (const r of await fx(flux.latestPerSeries(conf.bucket, measurement))) {
+          const last = r._value === '' ? NaN : Number(r._value);
+          if (!r._field || !Number.isFinite(last)) continue;
+          const tags = {};
+          for (const [k, v] of Object.entries(r)) if (!skip.has(k) && !k.startsWith('_') && v !== '') tags[k] = v;
+          out.push({ measurement, field: r._field, tags, last, time: toSeconds(r._time) });
+        }
+      } else {
+        for (const r of await ql(influxql.latestPerSeries(measurement, conf))) {
+          const tags = {};
+          for (const [k, v] of Object.entries(r._tags || {})) if (v !== '' && v != null) tags[k] = v;
+          for (const [col, v] of Object.entries(r)) {
+            if (!col.startsWith('last_') || typeof v !== 'number' || !Number.isFinite(v)) continue;
+            out.push({ measurement, field: col.slice(5), tags, last: v, time: toSeconds(r.time) });
+          }
+        }
+      }
+      const key = x => `${x.field}\u0000${Object.keys(x.tags).sort().map(k => `${k}=${x.tags[k]}`).join(',')}`;
+      return out.sort((a, b) => key(a).localeCompare(key(b)));
     },
 
     /** The time (seconds) of a series' first reading, or null when it has none. */

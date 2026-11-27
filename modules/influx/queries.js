@@ -34,6 +34,9 @@ const influxql = {
   /** The first reading of a series (its time tells how far back an import goes). */
   first: (series, { retentionPolicy } = {}) =>
     `SELECT first(${qlIdent(series.field)}) FROM ${qlFrom(series, retentionPolicy)}${qlWhere(series)}`,
+  /** Every series of a measurement with a reading in the last 30 days, with the latest reading of each field. */
+  latestPerSeries: (measurement, { retentionPolicy } = {}) =>
+    `SELECT last(*) FROM ${qlFrom({ measurement }, retentionPolicy)} WHERE time > now() - 30d GROUP BY *`,
   /** 5-minute buckets of a series over [from, to): mean, min, max and count, empty buckets left out. */
   buckets: (series, from, to, { retentionPolicy } = {}) => {
     const f = qlIdent(series.field);
@@ -68,6 +71,9 @@ const flux = {
     `import "influxdata/influxdb/schema"\nschema.measurementTagValues(bucket: ${fxString(bucket)}, measurement: ${fxString(measurement)}, tag: ${fxString(key)}, start: ${SCHEMA_START})`,
   first: (bucket, series) =>
     `from(bucket: ${fxString(bucket)}) |> range(start: 0) |> ${fxFilter(series)} |> group() |> first() |> keep(columns: ["_time", "_value"])`,
+  /** One row per series and field with a reading in the last 30 days: its tags and its latest reading. */
+  latestPerSeries: (bucket, measurement) =>
+    `from(bucket: ${fxString(bucket)}) |> range(start: -30d) |> filter(fn: (r) => r._measurement == ${fxString(measurement)}) |> last()`,
   buckets: (bucket, series, from, to) => [
     `data = from(bucket: ${fxString(bucket)}) |> range(start: ${fxTime(from)}, stop: ${fxTime(to)}) |> ${fxFilter(series)} |> group() |> toFloat()`,
     'agg = (fn, name) => data |> aggregateWindow(every: ' + BUCKET + ', fn: fn, createEmpty: false, timeSrc: "_start") |> toFloat() |> set(key: "agg", value: name)',

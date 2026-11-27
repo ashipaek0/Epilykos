@@ -126,8 +126,22 @@ function suggestHomeAssistant(found, knownMetrics = []) {
   return out.sort((a, b) => (b.known - a.known) || a.metric.localeCompare(b.metric));
 }
 
+/**
+ * A metric name to offer for a series found by Browse series: its entity_id tag (Home Assistant), else its tag values,
+ * with the field added when it is not just "value", else measurement_field. Lower case, words joined by "_".
+ */
+function suggestMetricName(series) {
+  const clean = x => String(x).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  const tags = series.tags || {};
+  const field = series.field === 'value' ? '' : series.field;
+  let base = tags.entity_id ? String(tags.entity_id).replace(/^sensor\./, '') : Object.keys(tags).sort().map(k => tags[k]).join('_');
+  if (!base) base = series.measurement;
+  const name = clean([base, field].filter(Boolean).join('_')).slice(0, 64).replace(/_+$/, '');
+  return name || clean(`${series.measurement}_${series.field}`).slice(0, 64) || 'influx_metric';
+}
+
 module.exports = {
   CONNECTION_KEY, MAPPING_KEY, WRITE_KEY, DEFAULT_MEASUREMENT, MAX_MAPPINGS,
   normaliseConnection, loadConnection, connectionView, mergeConnection, isConfigured,
-  validateMapping, loadMapping, normaliseWrite, loadWrite, suggestHomeAssistant,
+  validateMapping, loadMapping, normaliseWrite, loadWrite, suggestHomeAssistant, suggestMetricName,
 };
