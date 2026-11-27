@@ -1,25 +1,44 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "45964214508.1",
-    "version": "1.3.12-dev+f73e626",
-    "commit": "f73e6267a6b8df1dbcb3af89f12596b4e1746c11",
-    "digest": "sha256:1af2716a9c1b1e5cc6033b298c1b77315f478c85d84a2d50b6db2da44df10a87",
+    "buildId": "45964578627.1",
+    "version": "1.3.12-dev+3228ad3",
+    "commit": "3228ad3e5a4d84c2d06a30856f68ad4341907cc7",
+    "digest": "sha256:7bbd3dcd6aeabb4191f21920759968968a1b4c25e3bbcc95044809037d8a63bc",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-27T08:15:34Z",
+    "builtAt": "2026-11-27T08:18:21Z",
     "kind": "release",
     "notes": [
-      "Settings → InfluxDB: Browse series (#460)"
+      "Settings → Sources: mapping filters that work (#461)"
     ],
     "attestation": {
-      "id": "72996898",
-      "url": "https://github.com/ashipaek0/Epilykos/attestations/72996898",
+      "id": "72997855",
+      "url": "https://github.com/ashipaek0/Epilykos/attestations/72997855",
       "repository": "ashipaek0/Epilykos",
       "signer_workflow": "ashipaek0/Epilykos/.github/workflows/docker-build-dev.yml@refs/heads/dev",
-      "subject": "irunmole/epilykos@sha256:1af2716a9c1b1e5cc6033b298c1b77315f478c85d84a2d50b6db2da44df10a87"
+      "subject": "irunmole/epilykos@sha256:7bbd3dcd6aeabb4191f21920759968968a1b4c25e3bbcc95044809037d8a63bc"
     }
   },
   "history": [
+    {
+      "buildId": "45964578627.1",
+      "version": "1.3.12-dev+3228ad3",
+      "commit": "3228ad3e5a4d84c2d06a30856f68ad4341907cc7",
+      "digest": "sha256:7bbd3dcd6aeabb4191f21920759968968a1b4c25e3bbcc95044809037d8a63bc",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-27T08:18:21Z",
+      "kind": "release",
+      "notes": [
+        "Settings → Sources: mapping filters that work (#461)"
+      ],
+      "attestation": {
+        "id": "72997855",
+        "url": "https://github.com/ashipaek0/Epilykos/attestations/72997855",
+        "repository": "ashipaek0/Epilykos",
+        "signer_workflow": "ashipaek0/Epilykos/.github/workflows/docker-build-dev.yml@refs/heads/dev",
+        "subject": "irunmole/epilykos@sha256:7bbd3dcd6aeabb4191f21920759968968a1b4c25e3bbcc95044809037d8a63bc"
+      }
+    },
     {
       "buildId": "45964214508.1",
       "version": "1.3.12-dev+f73e626",
@@ -453,18 +472,6 @@
       "kind": "release",
       "notes": [
         "Settings: shorter intro on the Updates page (#430)"
-      ]
-    },
-    {
-      "buildId": "45391691774.1",
-      "version": "1.3.9-dev+37913f6",
-      "commit": "37913f6f1ee4f06b267b5eef8ff1efd1da79803a",
-      "digest": "sha256:1263ba3d84e4116a24a76277580087ce501be5b7ba8056e8b81d607ad7367765",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-24T12:15:28Z",
-      "kind": "release",
-      "notes": [
-        "Automations editor: move a reading's current value under its line (#429)"
       ]
     }
   ]
