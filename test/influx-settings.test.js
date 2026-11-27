@@ -73,7 +73,7 @@ for (const k of [s.CONNECTION_KEY, s.MAPPING_KEY, s.WRITE_KEY, 'influx_state']) 
 
   const app = express();
   app.use(express.json());
-  app.use(session({ secret: 'test-only', resave: false, saveUninitialized: false }));
+  app.use(session({ secret: 'test-only', resave: false, saveUninitialized: false, cookie: { secure: 'auto', httpOnly: true, sameSite: 'lax' } }));
   app.get('/signin', (q, r) => { q.session.authenticated = true; r.send('ok'); });
   app.use('/api/influx', require('../modules/sessionAuth').isAuthenticated, router);
   const server = app.listen(0, '127.0.0.1');
