@@ -3301,6 +3301,61 @@
           "strip": "VERFW:"
         }
       ]
+    },
+    {
+      "name": "CALC",
+      "computed": true,
+      "description": "Worked out from QPIGS: the unit reports no AC input power. Estimates: conversion losses are not counted.",
+      "fields": [
+        {
+          "index": 0,
+          "metric": "battery_net_power",
+          "label": "Battery Net Power (+ charging)",
+          "unit": "W",
+          "terms": [
+            {
+              "sign": 1,
+              "of": [
+                "battery_voltage",
+                "battery_charge_current"
+              ]
+            },
+            {
+              "sign": -1,
+              "of": [
+                "battery_voltage",
+                "battery_discharge_current"
+              ]
+            }
+          ]
+        },
+        {
+          "index": 1,
+          "metric": "estimated_grid_power",
+          "label": "Grid Power (estimated, + import)",
+          "unit": "W",
+          "terms": [
+            {
+              "sign": 1,
+              "of": [
+                "output_power"
+              ]
+            },
+            {
+              "sign": 1,
+              "of": [
+                "battery_net_power"
+              ]
+            },
+            {
+              "sign": -1,
+              "of": [
+                "pv_power"
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

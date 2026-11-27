@@ -157,15 +157,16 @@ console.log('ok - family, firmware (main, display, Bluetooth), time, available c
 assert.equal(profile.protocol, 'phocos-ascii'); assert.equal(profile.decoder, undefined, 'no decoder: the field list and mapping screens use the ASCII form');
 assert.deepEqual(profile.defaults, { baud: 2400, dataBits: 8, stopBits: 1, parity: 'none' });
 const names = profile.commands.map(c => c.name);
-assert.deepEqual(names, ['QPIGS', 'QPGS0', 'QPGS1', 'QPGS2', 'QPGS3', 'QPGS4', 'QPGS5', 'QPGS6', 'QPGS7', 'QPGS8', 'QPGS9', 'QPIRI', 'QFLAG', 'QDI', 'QMCHGCR', 'QMUCHGCR', 'QBATCD', 'QT', 'QPI', 'QVFW', 'QVFW3', 'VERFW']);
-assert.deepEqual(profile.call_order, names);
+assert.deepEqual(names, ['QPIGS', 'QPGS0', 'QPGS1', 'QPGS2', 'QPGS3', 'QPGS4', 'QPGS5', 'QPGS6', 'QPGS7', 'QPGS8', 'QPGS9', 'QPIRI', 'QFLAG', 'QDI', 'QMCHGCR', 'QMUCHGCR', 'QBATCD', 'QT', 'QPI', 'QVFW', 'QVFW3', 'VERFW', 'CALC']);
+assert.deepEqual(profile.call_order, names.filter(n => n !== 'CALC'), 'every command that is sent, in order; CALC is worked out, not sent');
+assert.ok(cmdOf('CALC').computed && !cmdOf('CALC').query);
 const seenMetrics = new Set();
 for (const cmd of profile.commands) {
   const indexes = cmd.fields.map(f => f.index);
   assert.equal(new Set(indexes).size, indexes.length, `${cmd.name}: every field has its own index (its mapping key)`);
   for (const f of cmd.fields) { assert.ok(f.metric && f.label, `${cmd.name}:${f.index} has a name`); assert.ok(!seenMetrics.has(f.metric), `${f.metric} is named once`); seenMetrics.add(f.metric); assert.ok((f.source ?? f.index) <= 28, `${cmd.name}:${f.index} reads a token the reply has`); }
 }
-assert.deepEqual(profile.commands.filter(c => !c.optional).map(c => c.name), ['QPIGS', 'QPGS0'], 'only the live readings are asked of every unit; the rest is optional');
+assert.deepEqual(profile.commands.filter(c => !c.optional && !c.computed).map(c => c.name), ['QPIGS', 'QPGS0'], 'only the live readings are asked of every unit; the rest is optional');
 for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9]) { const c = cmdOf('QPGS' + n); assert.equal(c.query, 'QPGS' + n); assert.equal(c.absentWhenZero, 1); assert.equal(c.retry_every, 20); assert.ok(c.fields.every(f => f.metric.startsWith(`unit${n}_`))); }
 assert.deepEqual(Object.fromEntries(profile.commands.filter(c => c.every).map(c => [c.name, c.every])), { QPIRI: 20, QFLAG: 20, QDI: 100, QMCHGCR: 100, QMUCHGCR: 100, QBATCD: 5, QT: 100, QPI: 100, QVFW: 100, QVFW3: 100, VERFW: 100 });
 assert.equal(cmdOf('VERFW').query, 'VERFW:', 'the BLE controller query carries its colon');
@@ -174,7 +175,23 @@ assert.deepEqual([0, 1, 19, 20, 21, 40].map(n => rs232.commandDue({ every: 20 },
 assert.ok([0, 1, 7, 99].every(n => rs232.commandDue({}, n)), 'a command with no "every" is asked every time');
 rs232.loadRs232Profiles();
 const loaded = rs232.availableProfiles.find(p => p.id === 'phocos-anygrid-rs232');
-assert.ok(loaded && loaded.protocol === 'phocos-ascii' && loaded.commands.length === 22, 'the poller lists the profile');
+assert.ok(loaded && loaded.protocol === 'phocos-ascii' && loaded.commands.length === 23, 'the poller lists the profile');
+
+// ── Grid power: the unit reports none, so the profile works it out ─────
+// Power balance: grid in + PV = AC output + battery charging (conversion losses not counted).
+const calc = cmdOf('CALC');
+assert.deepEqual(calc.fields.map(f => [f.index, f.metric, f.unit]), [[0, 'battery_net_power', 'W'], [1, 'estimated_grid_power', 'W']]);
+assert.match(calc.fields[1].label, /^Grid Power/, 'found by a search for "grid power"');
+for (const f of calc.fields) for (const t of f.terms) for (const n of t.of) assert.ok(seenMetrics.has(n) || n === 'battery_net_power', `${f.metric} uses ${n}, a field of the profile`);
+const raw = { output_power: 1200, battery_voltage: 52, battery_charge_current: 0, battery_discharge_current: 10, pv_power: 300 };
+// battery -520 W (discharging), grid = 1200 - 520 - 300 = 380 W import
+assert.deepEqual(rs232.computeFields(profile, raw, null), { battery_net_power: -520, estimated_grid_power: 380 });
+assert.deepEqual(rs232.computeFields(profile, { ...raw, battery_charge_current: 20, battery_discharge_current: 0, pv_power: 2500 }, null),
+  { battery_net_power: 1040, estimated_grid_power: -260 }, 'more PV than load and charging: negative is export');
+assert.deepEqual(rs232.computeFields(profile, raw, { 'Grid Power': 'CALC:1' }), { 'Grid Power': 380 }, 'mapped like any field, under the user\'s name; unmapped ones not written');
+const { pv_power, ...noPv } = raw;
+assert.deepEqual(rs232.computeFields(profile, noPv, null), { battery_net_power: -520 }, 'a field whose inputs are not all there is left out');
+console.log('ok - grid power is worked out from the power balance, mapped like any field');
 console.log('ok - the profile: unique fields, 2400 8N1, settings asked now and then, listed by the poller');
 
 // Old ASCII profiles read the same as before.
