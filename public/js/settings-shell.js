@@ -1183,12 +1183,42 @@
       if (!input) return;
       var list = $(input.dataset.container);
       if (!list) return;
-      var q = input.value.toLowerCase().trim();
-      list.querySelectorAll('.metric-row').forEach(function (row) {
-        row.style.display = !q || row.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
-      });
+      filterRows(list, input.value);
     });
   }
+
+  /**
+   * The text a mapping row shows: the chosen option of each dropdown, what is typed in each field, and the row's own
+   * labels. Not textContent: that holds every option of every dropdown (each row's metric list names every metric, so
+   * any metric name matched every row) and none of what is typed in a field.
+   */
+  function rowSearchText(row) {
+    var parts = [];
+    (function walk(node) {
+      for (var n = node.firstChild; n; n = n.nextSibling) {
+        if (n.nodeType === 3) { parts.push(n.nodeValue); continue; }
+        if (n.nodeType !== 1) continue;
+        var tag = n.tagName;
+        if (tag === 'SELECT') {
+          Array.prototype.forEach.call(n.selectedOptions || [], function (o) { if (o.value) parts.push(o.textContent, o.value); });
+        } else if (tag === 'INPUT' || tag === 'TEXTAREA') {
+          if (n.type !== 'checkbox' && n.type !== 'radio' && n.type !== 'button' && n.type !== 'hidden') parts.push(n.value);
+        } else if (tag !== 'OPTION' && tag !== 'DATALIST' && tag !== 'SCRIPT' && tag !== 'TEMPLATE') {
+          walk(n);
+        }
+      }
+    })(row);
+    return parts.join(' ').replace(/\s+/g, ' ').toLowerCase();
+  }
+  /** Show the rows of `list` whose text holds every word of `query`. */
+  function filterRows(list, query) {
+    var words = String(query || '').toLowerCase().trim().split(/\s+/).filter(Boolean);
+    list.querySelectorAll('.metric-row').forEach(function (row) {
+      var text = words.length ? rowSearchText(row) : '';
+      row.style.display = words.every(function (w) { return text.indexOf(w) !== -1; }) ? '' : 'none';
+    });
+  }
+  window.stRowSearchText = rowSearchText;   // tests
 
   // ── Wiring ─────────────────────────────────────────────────────────────
   function wire() {

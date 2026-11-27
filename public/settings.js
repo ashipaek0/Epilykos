@@ -2027,6 +2027,9 @@ function renderExternalSource(source, idx) {
     </div>
     <div class="section-divider">Mappings <span style="font-weight:normal;font-size:0.8em;color:var(--text-muted);">— for each row: pick a metric, then enter the JSON path in the response to extract its value</span></div>
     <div class="mappings-section">
+      <div class="mappings-filter-bar">
+        <input type="text" class="mappings-filter-input" placeholder="Filter mappings..." aria-label="Filter mappings" data-container="external-mappings-list-${idx}">
+      </div>
       <div class="mappings-filter-bar" style="display:flex;gap:0.5rem;align-items:center;">
         <span style="font-size:0.75em;color:var(--text-muted);white-space:nowrap;">Metric</span>
         <span style="flex:1;font-size:0.75em;color:var(--text-muted);">JSON path in response</span>
