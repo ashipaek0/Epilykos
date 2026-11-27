@@ -1,38 +1,64 @@
 {
   "channel": "latest",
   "latest": {
-    "buildId": "45588983713.1",
-    "version": "1.3.11",
-    "commit": "5fcd8a8ef400f6f1d8c0526088f6e7c6579ba27c",
-    "digest": "sha256:49170957779cfe84ec01470cb4437afe9de769e6b02a35cc6ff7eaaa4c504a5c",
+    "buildId": "45968122607.1",
+    "version": "1.3.12",
+    "commit": "52f5de5e6a91ef927aba86fefe9a40c639ef9be2",
+    "digest": "sha256:964854151c0fb42a0298cfbff976f1ed4d04b3b8bae415178877493d06b0cbba",
     "image": "irunmole/epilykos:latest",
-    "builtAt": "2026-11-25T09:49:21Z",
+    "builtAt": "2026-11-27T08:45:40Z",
     "kind": "release",
     "notes": [
-      "Refactor: move the dashboard layout routes, the metric read routes and the upload handling out of server.js (#450)",
-      "Refactor: move the role metrics, Virtual Battery and combined metrics routes out of server.js into routes/metricConfig.js (#449)",
-      "Refactor: move the REST source and forecast test routes out of server.js into routes/integrations.js (#448)",
-      "Attest the pushed images and put the attestation reference in the digest record and the update feed (#447)",
-      "Fix the low-severity findings and the small bugs from the security and debugging review (#446)",
-      "Share every reading without signing in: a setting, on for existing installs and off for new ones (#445)",
-      "Thin anonymous metric history to the stored 5-minute resolution (#444)",
-      "Refactor: move the restore and snapshot routes out of server.js into routes/restore.js (#443)",
-      "Refactor: move the Home Assistant and MQTT routes out of server.js into routes/integrations.js (#442)",
-      "Refactor: move the settings routes out of server.js into routes/settings.js (#441)",
-      "Refactor: move the metric management routes out of server.js into routes/metricManagement.js (#440)",
-      "Refactor: move the modbus and rs232 profile and test routes out of server.js into routes/profiles.js (#439)",
-      "Refactor: move the Bluetooth and wired BMS routes out of server.js into routes/bms.js (#438)",
-      "Refactor: move the dongle routes out of server.js into routes/dongle.js (#437)"
+      "Test: set the session cookie flags in the InfluxDB route tests (#463)",
+      "Settings → Sources: mapping filters that work (#461)",
+      "Settings → InfluxDB: Browse series (#460)",
+      "InfluxDB 7/7: docs, in-app help and attack-suite checks (#459)",
+      "InfluxDB 6/7: fill gaps after a restart and once a day (#458)",
+      "InfluxDB 5/7: write new readings (#457)",
+      "InfluxDB 4/7: import history (#456)",
+      "InfluxDB 3/7: Settings → InfluxDB (connection, metrics, writing) (#455)",
+      "InfluxDB 2/7: client for 1.x and 2.x (#454)",
+      "InfluxDB 1/7: store past readings from another database (#453)",
+      "Editor: presets move to the Dashboards menu (#452)"
     ],
     "attestation": {
-      "id": "72080758",
-      "url": "https://github.com/ashipaek0/Epilykos/attestations/72080758",
+      "id": "73008149",
+      "url": "https://github.com/ashipaek0/Epilykos/attestations/73008149",
       "repository": "ashipaek0/Epilykos",
       "signer_workflow": "ashipaek0/Epilykos/.github/workflows/docker-build.yml@refs/heads/main",
-      "subject": "irunmole/epilykos@sha256:49170957779cfe84ec01470cb4437afe9de769e6b02a35cc6ff7eaaa4c504a5c"
+      "subject": "irunmole/epilykos@sha256:964854151c0fb42a0298cfbff976f1ed4d04b3b8bae415178877493d06b0cbba"
     }
   },
   "history": [
+    {
+      "buildId": "45968122607.1",
+      "version": "1.3.12",
+      "commit": "52f5de5e6a91ef927aba86fefe9a40c639ef9be2",
+      "digest": "sha256:964854151c0fb42a0298cfbff976f1ed4d04b3b8bae415178877493d06b0cbba",
+      "image": "irunmole/epilykos:latest",
+      "builtAt": "2026-11-27T08:45:40Z",
+      "kind": "release",
+      "notes": [
+        "Test: set the session cookie flags in the InfluxDB route tests (#463)",
+        "Settings → Sources: mapping filters that work (#461)",
+        "Settings → InfluxDB: Browse series (#460)",
+        "InfluxDB 7/7: docs, in-app help and attack-suite checks (#459)",
+        "InfluxDB 6/7: fill gaps after a restart and once a day (#458)",
+        "InfluxDB 5/7: write new readings (#457)",
+        "InfluxDB 4/7: import history (#456)",
+        "InfluxDB 3/7: Settings → InfluxDB (connection, metrics, writing) (#455)",
+        "InfluxDB 2/7: client for 1.x and 2.x (#454)",
+        "InfluxDB 1/7: store past readings from another database (#453)",
+        "Editor: presets move to the Dashboards menu (#452)"
+      ],
+      "attestation": {
+        "id": "73008149",
+        "url": "https://github.com/ashipaek0/Epilykos/attestations/73008149",
+        "repository": "ashipaek0/Epilykos",
+        "signer_workflow": "ashipaek0/Epilykos/.github/workflows/docker-build.yml@refs/heads/main",
+        "subject": "irunmole/epilykos@sha256:964854151c0fb42a0298cfbff976f1ed4d04b3b8bae415178877493d06b0cbba"
+      }
+    },
     {
       "buildId": "45588983713.1",
       "version": "1.3.11",
@@ -479,16 +505,6 @@
         "Push prompt: shorten the toast to 'Enable notifications from this dashboard'",
         "BMS readings carry their unit, so a bank's Wh total shows as kWh"
       ]
-    },
-    {
-      "buildId": "42506274647.1",
-      "version": "1.2.0",
-      "commit": "0ed5947e07f7d26f15f75097aaa765168c95c97e",
-      "digest": "sha256:e0c0b1a8e7702ef16573698fd7332a9a8456521a45c3cd6d28f2620d952e2417",
-      "image": "irunmole/epilykos:latest",
-      "builtAt": "2026-11-08T17:46:12Z",
-      "kind": "rebuild",
-      "notes": []
     }
   ]
 }
