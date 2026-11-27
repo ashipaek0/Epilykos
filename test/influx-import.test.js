@@ -193,7 +193,7 @@ function setup(mapping, roles) {
   const session = require('express-session');
   const app = express();
   app.use(express.json());
-  app.use(session({ secret: 'test-only', resave: false, saveUninitialized: false }));
+  app.use(session({ secret: 'test-only', resave: false, saveUninitialized: false, cookie: { secure: 'auto', httpOnly: true, sameSite: 'lax' } }));
   app.get('/signin', (q, r) => { q.session.authenticated = true; r.send('ok'); });
   app.use('/api/influx', require('../modules/sessionAuth').isAuthenticated, require('../routes/influx'));
   const server = app.listen(0, '127.0.0.1');
