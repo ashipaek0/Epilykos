@@ -196,6 +196,8 @@ const sessionAuth = require('../modules/sessionAuth');
   assert.match(csrfJs, /response\.headers\.get\('X-CSRF-Token'\)/);
   const dash = fs.readFileSync(path.join(__dirname, '..', 'public/js/dashboard.js'), 'utf8');
   assert.match(dash, /fetch\('\/api\/logout', \{ method: 'POST' \}\)/);
+  const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+  assert.ok(!/href="\/api\/logout"/.test(indexHtml), 'the Sign out link does not point at the sign-out address (it posts there)');
   console.log('ok - csrf.js adopts the rotated token; the Sign out link posts');
 
   fs.rmSync(dir, { recursive: true, force: true });
