@@ -1,25 +1,44 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "45964578627.1",
-    "version": "1.3.12-dev+3228ad3",
-    "commit": "3228ad3e5a4d84c2d06a30856f68ad4341907cc7",
-    "digest": "sha256:7bbd3dcd6aeabb4191f21920759968968a1b4c25e3bbcc95044809037d8a63bc",
+    "buildId": "45967257970.1",
+    "version": "1.3.12-dev+f9ab930",
+    "commit": "f9ab930fa63f905f13e80130e99a2e35836a8c62",
+    "digest": "sha256:20af0c168511e6201030c63d4fb775aed625f694084080f07988465c90e4d3fd",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-27T08:18:21Z",
+    "builtAt": "2026-11-27T08:39:00Z",
     "kind": "release",
     "notes": [
-      "Settings → Sources: mapping filters that work (#461)"
+      "Test: set the session cookie flags in the InfluxDB route tests (#463)"
     ],
     "attestation": {
-      "id": "72997855",
-      "url": "https://github.com/ashipaek0/Epilykos/attestations/72997855",
+      "id": "73005360",
+      "url": "https://github.com/ashipaek0/Epilykos/attestations/73005360",
       "repository": "ashipaek0/Epilykos",
       "signer_workflow": "ashipaek0/Epilykos/.github/workflows/docker-build-dev.yml@refs/heads/dev",
-      "subject": "irunmole/epilykos@sha256:7bbd3dcd6aeabb4191f21920759968968a1b4c25e3bbcc95044809037d8a63bc"
+      "subject": "irunmole/epilykos@sha256:20af0c168511e6201030c63d4fb775aed625f694084080f07988465c90e4d3fd"
     }
   },
   "history": [
+    {
+      "buildId": "45967257970.1",
+      "version": "1.3.12-dev+f9ab930",
+      "commit": "f9ab930fa63f905f13e80130e99a2e35836a8c62",
+      "digest": "sha256:20af0c168511e6201030c63d4fb775aed625f694084080f07988465c90e4d3fd",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-27T08:39:00Z",
+      "kind": "release",
+      "notes": [
+        "Test: set the session cookie flags in the InfluxDB route tests (#463)"
+      ],
+      "attestation": {
+        "id": "73005360",
+        "url": "https://github.com/ashipaek0/Epilykos/attestations/73005360",
+        "repository": "ashipaek0/Epilykos",
+        "signer_workflow": "ashipaek0/Epilykos/.github/workflows/docker-build-dev.yml@refs/heads/dev",
+        "subject": "irunmole/epilykos@sha256:20af0c168511e6201030c63d4fb775aed625f694084080f07988465c90e4d3fd"
+      }
+    },
     {
       "buildId": "45964578627.1",
       "version": "1.3.12-dev+3228ad3",
@@ -461,18 +480,6 @@
       "builtAt": "2026-11-24T15:31:00Z",
       "kind": "release",
       "notes": []
-    },
-    {
-      "buildId": "45400208141.1",
-      "version": "1.3.9-dev+3795296",
-      "commit": "37952965c79d87e92fec443fb7977740a7356018",
-      "digest": "sha256:d6663fc9d3df3c889acc07dfca1ecbff06b75a94f35262798abb421025f9b675",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-24T13:07:54Z",
-      "kind": "release",
-      "notes": [
-        "Settings: shorter intro on the Updates page (#430)"
-      ]
     }
   ]
 }
