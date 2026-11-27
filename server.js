@@ -222,6 +222,7 @@ const restoreLifecycle = {
     require('./modules/updates').stop();
     shutdownRs232().catch(e => logger.warn('RS232 pause: ' + e.message));
     require('./modules/combinedMetrics').flushPartDays();
+    require('./modules/influx/service').stop();
   },
   resume() {
     sessionStore._db();
@@ -235,6 +236,7 @@ const restoreLifecycle = {
     startMetricAutoFlush(); pvoutput.start(); notifications.init(); require('./modules/automations').start();
     require('./modules/updates').start();
     require('./routes/health').checkHealth();
+    require('./modules/influx/service').start();
   }
 };
 databaseWork.run(() => { setupMqtt(); restoreLifecycle.resume(); require('./modules/haDiscoveryService').start(); });
@@ -550,6 +552,7 @@ app.use('/api/notices', isAuthenticated, require('./routes/notices'));
 app.use('/api/setup-health', isAuthenticated, require('./routes/setupHealth'));   // Settings → Health
 app.use('/api/presets', isAuthenticated, require('./routes/presets'));   // ready-made dashboards for the layout editor
 app.use('/api/ha-discovery', isAuthenticated, require('./routes/haDiscovery'));   // Settings → Home Assistant
+app.use('/api/influx', isAuthenticated, require('./routes/influx'));               // Settings → InfluxDB
 app.use('/api/prepaid', require('./routes/prepaid'));   // the balance: public unless private; changes and settings: signed in
 
 app.post('/api/wizard/reset', isAuthenticated, (req, res) => {
@@ -731,6 +734,7 @@ async function shutdown(signal, exitCode = 0) {
   for (const client of mqttClients.values()) client.end(true);
   mqttClients.clear();
   require('./modules/haDiscoveryService').stop();
+  await require('./modules/influx/service').stop();
   for (const client of wsClients) client.terminate();
   wsClients.clear();
   wss.close();

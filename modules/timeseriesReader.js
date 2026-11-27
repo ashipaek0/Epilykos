@@ -253,4 +253,4 @@ function emptyPowerStat(status, warnings) {
   return { status, unit: 'W', sum: null, count: 0, mean: null, min: null, max: null, last: null, fidelity: { mean: 'unavailable', min: 'unavailable', max: 'unavailable', last: 'unavailable', warnings } };
 }
 
-module.exports = { readMetricSeries, readHistorySeries, readDailySnapshots, readPowerStats, clearDailySnapshotCache, dailyCacheGeneration };
+module.exports = { readMetricSeries, readHistorySeries, readDailySnapshots, readPowerStats, clearDailySnapshotCache, dailyCacheGeneration, BUCKET_SECONDS, RETENTION_SECONDS };

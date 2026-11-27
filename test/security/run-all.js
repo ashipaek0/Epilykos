@@ -19,7 +19,7 @@ const PORT = process.env.SEC_PORT || 8097;
 const BASE = `http://127.0.0.1:${PORT}`;
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'epilykos-sec-'));
 
-const SCRIPTS = ['01-access-control.js', '02-input-and-limits.js', '03-ssrf.js', '05-webhook.js', '04-stored-xss.js'];
+const SCRIPTS = ['01-access-control.js', '02-input-and-limits.js', '03-ssrf.js', '05-webhook.js', '06-influx.js', '04-stored-xss.js'];
 
 function waitUp(timeoutMs = 20000) {
   const until = Date.now() + timeoutMs;

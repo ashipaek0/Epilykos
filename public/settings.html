@@ -54,6 +54,7 @@
       <li><a href="#uploads" class="st-nav-link" data-section="uploads"><span data-icon="upload" data-size="18"></span><span class="st-nav-label">Uploads</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#notifications" class="st-nav-link" data-section="notifications"><span data-icon="bell" data-size="18"></span><span class="st-nav-label">Notifications</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#homeassistant" class="st-nav-link" data-section="homeassistant"><span data-icon="home" data-size="18"></span><span class="st-nav-label">Home Assistant</span><span class="st-nav-meta"></span></a></li>
+      <li><a href="#influxdb" class="st-nav-link" data-section="influxdb"><span data-icon="database" data-size="18"></span><span class="st-nav-label">InfluxDB</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#network" class="st-nav-link" data-section="network"><span data-icon="wifi" data-size="18"></span><span class="st-nav-label">Network</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#security" class="st-nav-link" data-section="security"><span data-icon="lock" data-size="18"></span><span class="st-nav-label">Security</span><span class="st-nav-meta"></span></a></li>
       <li><a href="#logs" class="st-nav-link" data-section="logs"><span data-icon="terminal" data-size="18"></span><span class="st-nav-label">Logs</span><span class="st-nav-meta"></span></a></li>
@@ -477,6 +478,29 @@
           </div>
         </section>
 
+        <!-- ════════════ INFLUXDB ════════════ -->
+        <section class="st-section" id="section-influxdb" data-section="influxdb" aria-labelledby="h-influxdb" hidden>
+          <div class="st-section-head">
+            <div><h1 id="h-influxdb">InfluxDB</h1><p class="st-lede">Use the InfluxDB you already keep readings in: its history shows on the dashboard, and new readings are written to it.</p></div>
+          </div>
+          <div class="st-card" id="influx-conn-card" data-own-save>
+            <div class="st-card-head"><h2>Connection</h2><span class="st-badge" id="influx-badge" hidden></span></div>
+            <div id="influx-conn-root"><p class="st-help">Loading…</p></div>
+          </div>
+          <div class="st-card" id="influx-map-card" data-own-save>
+            <div class="st-card-head"><h2>Metrics to read</h2></div>
+            <div id="influx-map-root"><p class="st-help">Loading…</p></div>
+          </div>
+          <div class="st-card" id="influx-import-card" data-own-save>
+            <div class="st-card-head"><h2>Import history</h2><span class="st-badge" id="influx-import-badge" hidden></span></div>
+            <div id="influx-import-root"><p class="st-help">Loading…</p></div>
+          </div>
+          <div class="st-card" id="influx-write-card" data-own-save>
+            <div class="st-card-head"><h2>Writing new readings</h2></div>
+            <div id="influx-write-root"><p class="st-help">Loading…</p></div>
+          </div>
+        </section>
+
         <!-- ════════════ HEALTH ════════════ -->
         <section class="st-section" id="section-health" data-section="health" aria-labelledby="h-health" hidden>
           <div class="st-section-head">
@@ -744,6 +768,24 @@
                   <li><em>Verify All</em>, then save</li>
                 </ol>
                 <p class="help-more"><a class="help-link" href="https://epilykos.ashipaek0.com.ng/data-sources/tuya/" target="_blank" rel="noopener">More in the Epilykos Wiki ↗</a></p>
+              </div>
+            </details>
+            <!-- InfluxDB -->
+            <details class="help-sub">
+              <summary class="help-sub-summary">InfluxDB (your existing database)</summary>
+              <div class="help-sub-body">
+                <p>Shows the history you already keep in InfluxDB 1.x or 2.x on the dashboard, and writes new readings to it.</p>
+                <div class="help-checklist">
+                  <div class="help-checklist-item"><span class="help-badge must">Required</span> Its address on your network, e.g. <code>http://192.168.1.60:8086</code></div>
+                  <div class="help-checklist-item"><span class="help-badge must">Required</span> 2.x: organisation, bucket and a token that can read and write it. 1.x: database, and the user name and password if it has them</div>
+                </div>
+                <ol>
+                  <li><a class="help-link" href="#influxdb">InfluxDB</a>: enter the connection and save</li>
+                  <li>Under <em>Metrics to read</em>, say where each metric is. <em>Browse series</em> lists everything in the database to tick, whatever wrote it; <em>Find Home Assistant sensors</em> does the same for Home Assistant's InfluxDB integration only</li>
+                  <li><em>Import history</em>: check, then start. It runs in the background</li>
+                </ol>
+                <p>New readings go into the <code>epilykos</code> measurement with a <code>metric</code> tag. Readings Epilykos already has are never replaced.</p>
+                <p class="help-more"><a class="help-link" href="https://epilykos.ashipaek0.com.ng/settings/influxdb/" target="_blank" rel="noopener">More in the Epilykos Wiki ↗</a></p>
               </div>
             </details>
           </div>
@@ -1105,6 +1147,7 @@
 <script src="js/remote-settings.js?v=2"></script>
 <script src="js/two-step-settings.js?v=2"></script>
 <script src="js/ha-discovery-settings.js?v=1"></script>
+<script src="js/influx-settings.js?v=1"></script>
 <script src="js/health-settings.js?v=1"></script>
 <script src="js/updates-settings.js?v=4"></script>
 <!-- Colour inputs open an in-page picker that stays on screen (same as the layout editor). -->
