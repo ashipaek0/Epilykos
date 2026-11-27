@@ -46,6 +46,12 @@ const sug = s.suggestHomeAssistant([{ measurement: 'W', entityIds: ['pv_power', 
 assert.deepStrictEqual(sug.map(r => [r.metric, r.measurement, r.tags.entity_id, r.known]),
   [['Battery_SOC', '%', 'battery_soc', true], ['pv_power', 'W', 'pv_power', true], ['fridge', 'W', 'fridge', false]], 'known metrics first, matched without case');
 
+assert.strictEqual(s.suggestMetricName({ measurement: 'W', field: 'value', tags: { entity_id: 'sensor.PV Power', domain: 'sensor' } }), 'pv_power', 'Home Assistant: the entity id');
+assert.strictEqual(s.suggestMetricName({ measurement: 'cpu', field: 'usage_idle', tags: { host: 'pi', cpu: 'cpu-total' } }), 'cpu_total_pi_usage_idle', 'tag values, then the field');
+assert.strictEqual(s.suggestMetricName({ measurement: 'Grid Meter', field: 'power', tags: {} }), 'grid_meter_power', 'no tags: the measurement');
+assert.strictEqual(s.suggestMetricName({ measurement: '°', field: '%', tags: {} }), 'influx_metric', 'nothing usable: a placeholder');
+assert.ok(s.suggestMetricName({ measurement: 'm', field: 'f', tags: { a: 'x'.repeat(200) } }).length <= 64);
+
 for (const k of [s.CONNECTION_KEY, s.MAPPING_KEY, s.WRITE_KEY, 'influx_state']) assert.ok(isProtectedKey(k), `${k} cannot be written through /api/settings`);
 
 // ── Routes ──────────────────────────────────────────────────────────────
@@ -56,6 +62,9 @@ for (const k of [s.CONNECTION_KEY, s.MAPPING_KEY, s.WRITE_KEY, 'influx_state']) 
     if (q.includes('measurementFieldKeys')) return q.includes('"W"') ? fluxCsv([{ _value: 'value' }]) : fluxCsv([{ _value: 'state' }]);
     if (q.includes('measurementTagKeys')) return fluxCsv([{ _value: 'entity_id' }, { _value: 'domain' }]);
     if (q.includes('measurementTagValues')) return fluxCsv([{ _value: 'pv_power' }, { _value: 'load' }]);
+    if (q.includes('|> last()')) return q.includes('"W"')
+      ? fluxCsv([{ _time: '2026-11-01T00:00:00Z', _value: 1500, _field: 'value', _measurement: 'W', entity_id: 'pv_power', domain: 'sensor' }])
+      : fluxCsv([{ _time: '2026-11-01T00:00:00Z', _value: 3, _field: 'used', _measurement: 'state', host: 'pi' }]);
     return '';
   } });
   const fakeUrl = await fake.listen();
@@ -80,7 +89,7 @@ for (const k of [s.CONNECTION_KEY, s.MAPPING_KEY, s.WRITE_KEY, 'influx_state']) 
     r.on('error', reject); if (data) r.write(data); r.end();
   });
   try {
-    for (const p of ['/', '/connection', '/test', '/discover', '/suggest-ha', '/mapping', '/write-settings', '/disconnect']) {
+    for (const p of ['/', '/connection', '/test', '/discover', '/suggest-ha', '/browse-series', '/mapping', '/write-settings', '/disconnect']) {
       const r = await call(p === '/' ? 'GET' : 'POST', '/api/influx' + p, p === '/' ? undefined : {});
       assert.strictEqual(r.status, 401, `${p} signed out`);
     }
@@ -116,6 +125,16 @@ for (const k of [s.CONNECTION_KEY, s.MAPPING_KEY, s.WRITE_KEY, 'influx_state']) 
     assert.deepStrictEqual(r.body.rows.map(x => [x.metric, x.measurement, x.known]), [['pv_power', 'W', true], ['load', 'W', false]],
       'only measurements with an entity_id tag and a value field');
 
+    r = await call('POST', '/api/influx/browse-series', {});
+    assert.strictEqual(r.status, 200);
+    assert.deepStrictEqual(r.body.series.map(x => [x.measurement, x.field, x.metric, x.known, x.last]), [['W', 'value', 'pv_power', true, 1500], ['state', 'used', 'pi_used', false, 3]],
+      'every measurement, whatever wrote it; a known metric marked');
+    r = await call('POST', '/api/influx/browse-series', { measurement: 'state' });
+    assert.deepStrictEqual(r.body.series.map(x => x.measurement), ['state'], 'or one measurement');
+    database.setConfig(s.WRITE_KEY, JSON.stringify({ measurement: 'state', all: false }));
+    r = await call('POST', '/api/influx/browse-series', {});
+    assert.deepStrictEqual(r.body.series.map(x => x.measurement), ['W'], 'never the measurement Epilykos writes its own readings to');
+    database.setConfig(s.WRITE_KEY, '');
     r = await call('POST', '/api/influx/mapping', { mapping: [{ metric: 'pv_power', measurement: 'W', field: 'value', tags: { entity_id: 'pv_power' } }, { metric: 'x' }] });
     assert.strictEqual(r.status, 400);
     r = await call('POST', '/api/influx/mapping', { mapping: [{ metric: 'pv_power', measurement: 'W', field: 'value', tags: { entity_id: 'pv_power' } }] });

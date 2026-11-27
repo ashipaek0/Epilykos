@@ -64,6 +64,11 @@ assert.throws(() => createInfluxClient({ version: '1', url: 'http://h' }), /data
     if (q.includes('measurementFieldKeys')) return fluxCsv([{ _value: 'value' }, { _value: 'friendly_name_str' }]);
     if (q.includes('measurementTagKeys')) return fluxCsv([{ _value: '_measurement' }, { _value: 'entity_id' }, { _value: 'domain' }]);
     if (q.includes('measurementTagValues')) return fluxCsv([{ _value: 'pv_power' }, { _value: 'load_power' }]);
+    if (q.includes('|> last()')) return fluxCsv([
+      { _start: iso(T0), _stop: iso(T0), _time: iso(T0), _value: 91.5, _field: 'usage_idle', _measurement: 'cpu', cpu: 'cpu-total', host: 'pi' },
+      { _start: iso(T0), _stop: iso(T0), _time: iso(T0), _value: 'ok', _field: 'state', _measurement: 'cpu', cpu: 'cpu-total', host: 'pi' },
+      { _start: iso(T0), _stop: iso(T0), _time: iso(T0), _value: 4, _field: 'usage_user', _measurement: 'cpu', cpu: '', host: 'pi' },
+    ]);
     if (q.includes('first()')) return fluxCsv([{ _time: iso(T0 - 86400), _value: 5 }]);
     if (q.includes('aggregateWindow')) return fluxCsv([
       { _time: iso(T0), _value: 150, agg: 'avg' }, { _time: iso(T0), _value: 100, agg: 'min' }, { _time: iso(T0), _value: 200, agg: 'max' }, { _time: iso(T0), _value: 3, agg: 'count' },
@@ -83,6 +88,11 @@ assert.throws(() => createInfluxClient({ version: '1', url: 'http://h' }), /data
   assert.deepStrictEqual(await c2.tagValues('W', 'entity_id'), ['load_power', 'pv_power']);
   const series = { measurement: 'W', field: 'value', tags: { entity_id: 'pv_power' } };
   assert.strictEqual(await c2.first(series), T0 - 86400);
+  assert.deepStrictEqual(await c2.series('cpu'), [
+    { measurement: 'cpu', field: 'usage_idle', tags: { cpu: 'cpu-total', host: 'pi' }, last: 91.5, time: T0 },
+    { measurement: 'cpu', field: 'usage_user', tags: { host: 'pi' }, last: 4, time: T0 },
+  ], 'every series of a measurement with its latest number; text fields and empty tags left out');
+  assert.ok(v2.log[v2.log.length - 1].query.includes('range(start: -30d)'));
   assert.deepStrictEqual(await c2.buckets(series, T0, T0 + 900), [
     { bucket_start: T0, avg: 150, min: 100, max: 200, count: 3 },
     { bucket_start: T0 + 300, avg: 10, min: 10, max: 10, count: 1 },
@@ -111,6 +121,10 @@ assert.throws(() => createInfluxClient({ version: '1', url: 'http://h' }), /data
     if (q.startsWith('SHOW FIELD KEYS')) return qlAnswer(['fieldKey', 'fieldType'], [['value', 'float'], ['state', 'string']]);
     if (q.startsWith('SHOW TAG KEYS')) return qlAnswer(['tagKey'], [['entity_id'], ['domain']]);
     if (q.startsWith('SHOW TAG VALUES')) return qlAnswer(['key', 'value'], [['entity_id', 'pv_power']]);
+    if (q.startsWith('SELECT last(*)')) return { results: [{ statement_id: 0, series: [
+      { name: 'cpu', tags: { cpu: 'cpu0', host: 'pi' }, columns: ['time', 'last_usage_idle', 'last_state'], values: [[T0, 88, 'ok']] },
+      { name: 'cpu', tags: { cpu: 'cpu-total', host: 'pi' }, columns: ['time', 'last_usage_idle', 'last_state'], values: [[T0, 91.5, null]] },
+    ] }] };
     if (q.startsWith('SELECT first')) return qlAnswer(['time', 'first'], [[T0 - 3600, 1]]);
     if (q.startsWith('SELECT mean')) return qlAnswer(['time', 'avg', 'min', 'max', 'count'], [[T0, 2.5, 1, 4, 4], [T0 + 300, null, null, null, 0]]);
     return null;
@@ -124,6 +138,8 @@ assert.throws(() => createInfluxClient({ version: '1', url: 'http://h' }), /data
   assert.deepStrictEqual(await c1.tagKeys('W'), ['domain', 'entity_id']);
   assert.deepStrictEqual(await c1.tagValues('W', 'entity_id'), ['pv_power']);
   assert.strictEqual(await c1.first(series), T0 - 3600);
+  assert.deepStrictEqual((await c1.series('cpu')).map(x => [x.field, x.tags.cpu, x.last]), [['usage_idle', 'cpu-total', 91.5], ['usage_idle', 'cpu0', 88]]);
+  assert.strictEqual(v1.log[v1.log.length - 1].query, 'SELECT last(*) FROM "autogen"."cpu" WHERE time > now() - 30d GROUP BY *');
   assert.deepStrictEqual(await c1.buckets(series, T0, T0 + 600), [{ bucket_start: T0, avg: 2.5, min: 1, max: 4, count: 4 }]);
   assert.ok(v1.log[v1.log.length - 1].query.includes('FROM "autogen"."W" WHERE "entity_id" = \'pv_power\''));
   await c1.write(['epilykos,metric=pv value=1 1']);

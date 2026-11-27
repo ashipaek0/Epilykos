@@ -198,9 +198,10 @@
 
     var actions = el('div', { class: 'st-health-actions' });
     var add = el('button', { type: 'button', class: 'st-btn' }, '+ Add a metric');
+    var browse = el('button', { type: 'button', class: 'st-btn' }, 'Browse series');
     var ha = el('button', { type: 'button', class: 'st-btn' }, 'Find Home Assistant sensors');
     var save = el('button', { type: 'button', class: 'st-btn st-btn-primary' }, 'Save metrics');
-    actions.appendChild(save); actions.appendChild(add); actions.appendChild(ha);
+    actions.appendChild(save); actions.appendChild(add); actions.appendChild(browse); actions.appendChild(ha);
     mapRoot.appendChild(actions);
     var found = el('div', { id: 'influx-ha-found' });
     mapRoot.appendChild(found);
@@ -210,6 +211,14 @@
       save.disabled = true;
       api('/mapping', { mapping: currentRows() }).then(function (d) { data = d; drawMapping(); drawImport(); toast('Saved'); })
         .catch(function (e) { toast(e.message, 'error'); save.disabled = false; });
+    });
+    browse.addEventListener('click', function () {
+      browse.disabled = true;
+      found.textContent = '';
+      found.appendChild(el('p', { class: 'st-help' }, 'Reading what is in the database…'));
+      api('/browse-series', {}).then(function (d) { drawBrowse(found, d); })
+        .catch(function (e) { found.textContent = ''; toast(e.message, 'error'); })
+        .then(function () { browse.disabled = false; });
     });
     ha.addEventListener('click', function () {
       ha.disabled = true;
@@ -245,6 +254,63 @@
       list.querySelectorAll('input[type="checkbox"]:checked').forEach(function (cb) { if (!cb.disabled) { addRow(d.rows[Number(cb.getAttribute('data-i'))]); n++; } });
       box.textContent = '';
       toast(n ? 'Added ' + n + '. Press Save metrics to keep them.' : 'Nothing ticked');
+    });
+    box.appendChild(addSel);
+  }
+
+  // Whether a mapping row already reads this series: same measurement and field, and every tag filter of the row
+  // matches the series' tags (a row can filter on fewer tags than the series has).
+  function rowCovers(row, r) {
+    if (row.measurement !== r.measurement || row.field !== r.field) return false;
+    var t = row.tags || {};
+    return Object.keys(t).every(function (k) { return r.tags[k] === t[k]; });
+  }
+  function fmtValue(v) { return Math.abs(v) >= 1000 || Number.isInteger(v) ? String(Math.round(v * 100) / 100) : String(Math.round(v * 1000) / 1000); }
+
+  /** Every series in the database: filter, tick, add. Works for any layout (Telegraf, Node-RED, scripts, Home Assistant). */
+  function drawBrowse(box, d) {
+    box.textContent = '';
+    if (!d.series.length) { box.appendChild(el('p', { class: 'st-help' }, 'No series with a number in the last 30 days.')); return; }
+    var rows = currentRows();
+    var names = {};
+    rows.forEach(function (r) { names[r.metric] = true; });
+    box.appendChild(el('p', { class: 'st-help' }, d.series.length + ' series with a number in the last 30 days' + (d.truncated ? ' (the first ' + d.series.length + ')' : '') + ', with the latest reading. Ticked ones match a metric Epilykos already has. Tick the ones to read, then rename any in the table before saving.'));
+    var filterWrap = el('div', { class: 'st-field' });
+    filterWrap.appendChild(el('label', { for: 'influx-browse-filter' }, 'Filter'));
+    var filter = el('input', { id: 'influx-browse-filter', class: 'input', type: 'search', autocomplete: 'off' });
+    filterWrap.appendChild(filter);
+    box.appendChild(filterWrap);
+    var list = el('div', { class: 'st-influx-found' });
+    var items = d.series.map(function (r, i) {
+      var already = rows.some(function (row) { return rowCovers(row, r); });
+      var l = el('label', { class: 'st-radio', style: 'display:block;margin:6px 0' });
+      var cb = el('input', { type: 'checkbox', 'data-i': String(i) });
+      cb.checked = !!r.known && !already && !names[r.metric];
+      cb.disabled = already;
+      l.appendChild(cb);
+      l.appendChild(el('span', {}, ' ' + r.metric + ' '));
+      var tags = Object.keys(r.tags).sort().map(function (k) { return k + '=' + r.tags[k]; }).join(', ');
+      var where = r.measurement + ' · ' + r.field + (tags ? ' · ' + tags : '');
+      l.appendChild(el('span', { class: 'st-help' }, where + ' · latest ' + fmtValue(r.last) + (already ? ' · already listed' : '')));
+      list.appendChild(l);
+      return { label: l, text: (r.metric + ' ' + where).toLowerCase() };
+    });
+    filter.addEventListener('input', function () {
+      var q = filter.value.trim().toLowerCase();
+      items.forEach(function (it) { it.label.hidden = !!q && it.text.indexOf(q) < 0; });
+    });
+    box.appendChild(list);
+    var addSel = el('button', { type: 'button', class: 'st-btn' }, 'Add the ticked series');
+    addSel.addEventListener('click', function () {
+      var n = 0;
+      list.querySelectorAll('input[type="checkbox"]:checked').forEach(function (cb) {
+        if (cb.disabled) return;
+        var r = d.series[Number(cb.getAttribute('data-i'))];
+        addRow({ metric: r.metric, measurement: r.measurement, field: r.field, tags: r.tags, scale: 1 });
+        n++;
+      });
+      box.textContent = '';
+      toast(n ? 'Added ' + n + '. Rename any you like, then press Save metrics.' : 'Nothing ticked');
     });
     box.appendChild(addSel);
   }
