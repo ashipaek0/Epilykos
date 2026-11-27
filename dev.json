@@ -1,25 +1,44 @@
 {
   "channel": "dev",
   "latest": {
-    "buildId": "45999928367.1",
-    "version": "1.3.13-dev+8eb8af0",
-    "commit": "8eb8af0e010bc5cdd3c79b59b77e297b78186feb",
-    "digest": "sha256:78aaabf3b936450df1eb3a8f285c96019f1f0576723f0f690080fbd3d46ea7e5",
+    "buildId": "46034174840.1",
+    "version": "1.3.13-dev+c28411f",
+    "commit": "c28411fbc78cd3d7e4ee32f05d201b9323644d1c",
+    "digest": "sha256:f65b4b108316657a9b4da16ccc5a61a63899e77f1faab5849885abb4643db6e9",
     "image": "irunmole/epilykos:dev",
-    "builtAt": "2026-11-27T12:35:51Z",
+    "builtAt": "2026-11-27T16:30:44Z",
     "kind": "release",
     "notes": [
-      "Solar forecast: the figures add up; Sign out link (#464)"
+      "Phocos Any-Grid: grid power over RS232; findable over Bluetooth (#465)"
     ],
     "attestation": {
-      "id": "73103257",
-      "url": "https://github.com/ashipaek0/Epilykos/attestations/73103257",
+      "id": "73202564",
+      "url": "https://github.com/ashipaek0/Epilykos/attestations/73202564",
       "repository": "ashipaek0/Epilykos",
       "signer_workflow": "ashipaek0/Epilykos/.github/workflows/docker-build-dev.yml@refs/heads/dev",
-      "subject": "irunmole/epilykos@sha256:78aaabf3b936450df1eb3a8f285c96019f1f0576723f0f690080fbd3d46ea7e5"
+      "subject": "irunmole/epilykos@sha256:f65b4b108316657a9b4da16ccc5a61a63899e77f1faab5849885abb4643db6e9"
     }
   },
   "history": [
+    {
+      "buildId": "46034174840.1",
+      "version": "1.3.13-dev+c28411f",
+      "commit": "c28411fbc78cd3d7e4ee32f05d201b9323644d1c",
+      "digest": "sha256:f65b4b108316657a9b4da16ccc5a61a63899e77f1faab5849885abb4643db6e9",
+      "image": "irunmole/epilykos:dev",
+      "builtAt": "2026-11-27T16:30:44Z",
+      "kind": "release",
+      "notes": [
+        "Phocos Any-Grid: grid power over RS232; findable over Bluetooth (#465)"
+      ],
+      "attestation": {
+        "id": "73202564",
+        "url": "https://github.com/ashipaek0/Epilykos/attestations/73202564",
+        "repository": "ashipaek0/Epilykos",
+        "signer_workflow": "ashipaek0/Epilykos/.github/workflows/docker-build-dev.yml@refs/heads/dev",
+        "subject": "irunmole/epilykos@sha256:f65b4b108316657a9b4da16ccc5a61a63899e77f1faab5849885abb4643db6e9"
+      }
+    },
     {
       "buildId": "45999928367.1",
       "version": "1.3.13-dev+8eb8af0",
@@ -473,18 +492,6 @@
       "digest": "sha256:ee97ac201807a9f01e01ff0f0576b7bf625143edfeb019948fa042b0278e5e32",
       "image": "irunmole/epilykos:dev",
       "builtAt": "2026-11-24T15:34:40Z",
-      "kind": "release",
-      "notes": [
-        "Test: set the session cookie flags in the automations API test (#432)"
-      ]
-    },
-    {
-      "buildId": "45427101181.1",
-      "version": "1.3.9-dev+173dd66",
-      "commit": "173dd66b33188ae7c82d7947ba3e73de6a88517a",
-      "digest": "sha256:7d17da2727eee76ac1f1b8a08cae8f448740b316fd559f223ef349f32bb1425d",
-      "image": "irunmole/epilykos:dev",
-      "builtAt": "2026-11-24T15:35:05Z",
       "kind": "release",
       "notes": [
         "Test: set the session cookie flags in the automations API test (#432)"
